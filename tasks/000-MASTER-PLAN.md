@@ -69,7 +69,7 @@ Each task is defined in its own self-contained ticket file in the `tasks/` direc
 | Ticket | Task Title | Target Files | Status |
 | :--- | :--- | :--- | :--- |
 | **[TASK-001](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/001-project-scaffolding.md)** | Project Scaffolding (Tauri v2 + Rust + Bun/React) | `package.json`, `Cargo.toml`, `src-tauri/Cargo.toml`, `vite.config.ts` | `DONE` |
-| **[TASK-002](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/002-midi-engine-routing.md)** | Native MIDI Device Discovery & Auto-Routing | `src-tauri/src/midi.rs`, `src-tauri/src/router.rs` | `TODO` |
+| **[TASK-002](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/002-midi-engine-routing.md)** | Native MIDI Device Discovery & Auto-Routing | `src-tauri/src/midi.rs`, `src-tauri/src/router.rs` | `DONE` |
 | **[TASK-003](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/003-soundfont-synthesis-engine.md)** | Pure-Rust Dual SoundFont Synthesis & Audio Stream | `src-tauri/src/audio.rs`, `src-tauri/src/synth.rs` | `TODO` |
 | **[TASK-004](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/004-curated-soundfonts-assets.md)** | Curated Open-Source SoundFonts & Asset Loader | `src-tauri/assets/soundfonts/`, `src-tauri/src/assets.rs` | `TODO` |
 | **[TASK-005](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/005-dsp-macro-knob-controls.md)** | Macro DSP Controls & CC Mapping Chain | `src-tauri/src/dsp.rs` | `TODO` |

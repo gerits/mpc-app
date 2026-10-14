@@ -1,7 +1,7 @@
 # TASK-002: Native MIDI Device Discovery & Auto-Routing
 
 - **Ticket ID**: `TASK-002`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-001`
 - **Target Files**:
   - `src-tauri/src/midi.rs`
@@ -47,6 +47,7 @@ Implement low-latency native MIDI input listening via `midir` (CoreMIDI on macOS
 
 ## 3. Acceptance Criteria
 
-- [ ] Unit tests in `router.rs` verify that Note 36 (C1) routes to `DrumPad 0` and Note 60 (Middle C) routes to `KeyboardNote`.
-- [ ] CC 70-77 are accurately translated into 0-7 knob indices with normalized 0.0–1.0 float values.
-- [ ] Pluggable MIDI listener connects to connected hardware controller without dropping note-off events.
+- [x] Unit tests in `router.rs` verify that Note 36 (C1) routes to `DrumPad 0` and Note 60 (Middle C) routes to `KeyboardNote`.
+- [x] CC 70-77 are accurately translated into 0-7 knob indices with normalized 0.0–1.0 float values.
+- [x] Pluggable MIDI listener connects to connected hardware controller without dropping note-off events.
+
