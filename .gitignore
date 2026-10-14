@@ -1,0 +1,17 @@
+# Node / Bun
+node_modules
+dist
+
+# Rust / Cargo
+target
+src-tauri/target
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo

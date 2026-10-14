@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="100" fill="#121418"/>
+  <rect x="24" y="24" width="464" height="464" rx="80" fill="#181b21" stroke="#2d323c" stroke-width="8"/>
+  <!-- Top OLED stripe -->
+  <rect x="64" y="64" width="384" height="64" rx="12" fill="#0a120e" stroke="#16633b" stroke-width="4"/>
+  <circle cx="96" cy="96" r="12" fill="#e52521"/>
+  <rect x="130" y="88" width="160" height="16" rx="4" fill="#2cf583"/>
+  <rect x="320" y="88" width="96" height="16" rx="4" fill="#2cf583" opacity="0.6"/>
+  <!-- 2x4 Pad Matrix -->
+  <!-- Row 1 -->
+  <rect x="64" y="160" width="80" height="80" rx="12" fill="#2a2d34" stroke="#e52521" stroke-width="4"/>
+  <rect x="165" y="160" width="80" height="80" rx="12" fill="#2a2d34" stroke="#495163" stroke-width="3"/>
+  <rect x="266" y="160" width="80" height="80" rx="12" fill="#2a2d34" stroke="#495163" stroke-width="3"/>
+  <rect x="368" y="160" width="80" height="80" rx="12" fill="#2a2d34" stroke="#e52521" stroke-width="4"/>
+  <!-- Row 2 -->
+  <rect x="64" y="260" width="80" height="80" rx="12" fill="#2a2d34" stroke="#495163" stroke-width="3"/>
+  <rect x="165" y="260" width="80" height="80" rx="12" fill="#2a2d34" stroke="#e52521" stroke-width="4"/>
+  <rect x="266" y="260" width="80" height="80" rx="12" fill="#2a2d34" stroke="#e52521" stroke-width="4"/>
+  <rect x="368" y="260" width="80" height="80" rx="12" fill="#2a2d34" stroke="#495163" stroke-width="3"/>
+  <!-- Keyboard Keys Preview at bottom -->
+  <rect x="64" y="368" width="384" height="80" rx="8" fill="#e2e8f0"/>
+  <!-- Black Keys -->
+  <rect x="100" y="368" width="28" height="48" rx="4" fill="#121418"/>
+  <rect x="144" y="368" width="28" height="48" rx="4" fill="#121418"/>
+  <rect x="232" y="368" width="28" height="48" rx="4" fill="#121418"/>
+  <rect x="276" y="368" width="28" height="48" rx="4" fill="#121418"/>
+  <rect x="320" y="368" width="28" height="48" rx="4" fill="#121418"/>
+  <rect x="408" y="368" width="28" height="48" rx="4" fill="#121418"/>
+</svg>

@@ -1,7 +1,7 @@
 # TASK-001: Project Scaffolding (Tauri v2 + Rust + Bun/React)
 
 - **Ticket ID**: `TASK-001`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: None
 - **Target Files**:
   - `package.json`
@@ -42,6 +42,6 @@ Set up the foundational workspace for **MiniStation** using Tauri v2, Rust 1.95,
 
 ## 3. Acceptance Criteria
 
-- [ ] `bun run build` succeeds without TypeScript or bundling errors.
-- [ ] `cargo check --manifest-path src-tauri/Cargo.toml` compiles cleanly without warnings or errors.
-- [ ] A baseline window can be launched displaying the initialized React DOM.
+- [x] `bun run build` succeeds without TypeScript or bundling errors.
+- [x] `cargo check --manifest-path src-tauri/Cargo.toml` compiles cleanly without warnings or errors.
+- [x] A baseline window can be launched displaying the initialized React DOM.
