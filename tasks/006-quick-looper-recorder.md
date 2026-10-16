@@ -1,7 +1,7 @@
 # TASK-006: 2-Track Quick Looper & WAV Exporter
 
 - **Ticket ID**: `TASK-006`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-003`, `TASK-005`
 - **Target Files**:
   - `src-tauri/src/looper.rs`
@@ -41,6 +41,6 @@ Build a built-in 2-track audio looper engine. This allows the musician to record
 
 ## 3. Acceptance Criteria
 
-- [ ] Hitting Record captures audio for exact 4 bars and transitions seamlessly into loop playback.
-- [ ] Overdubbing adds key notes on top of an existing drum loop without phase cancellation or clipping.
-- [ ] Exporting produces a clean WAV file playable in any media player.
+- [x] Hitting Record captures audio for exact 4 bars and transitions seamlessly into loop playback.
+- [x] Overdubbing adds key notes on top of an existing drum loop without phase cancellation or clipping.
+- [x] Exporting produces a clean WAV file playable in any media player.

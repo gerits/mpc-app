@@ -2,11 +2,13 @@ pub mod assets;
 pub mod audio;
 pub mod dsp;
 pub mod effects;
+pub mod looper;
 pub mod midi;
 pub mod router;
 pub mod soundfont_manager;
 pub mod synth;
 pub mod types;
+pub mod wav_export;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

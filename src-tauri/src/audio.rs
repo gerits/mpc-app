@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -7,6 +7,7 @@ use cpal::{BufferSize, OutputCallbackInfo, SampleFormat, Stream, StreamConfig};
 use crossbeam_channel::{Receiver, Sender};
 use rustysynth::SoundFont;
 
+use crate::looper::LooperSnapshot;
 use crate::synth::{
     create_synthesizer, load_soundfont_from_bytes, load_soundfont_from_path, AudioMeter,
     DualSynthEngine, SynthCommand,
@@ -40,6 +41,7 @@ pub struct AudioEngine {
     event_sender: Sender<RoutedEvent>,
     event_receiver: Receiver<RoutedEvent>,
     meter: Arc<AudioMeter>,
+    looper_snapshot: Arc<Mutex<LooperSnapshot>>,
     config: AudioStreamConfig,
     current_sample_rate: Arc<AtomicU32>,
     current_buffer_size: Arc<AtomicU32>,
@@ -59,6 +61,7 @@ impl AudioEngine {
             event_sender,
             event_receiver,
             meter: Arc::new(AudioMeter::new()),
+            looper_snapshot: Arc::new(Mutex::new(LooperSnapshot::default())),
             config: AudioStreamConfig {
                 sample_rate,
                 buffer_size,
@@ -146,6 +149,7 @@ impl AudioEngine {
 
         let event_rx = self.event_receiver.clone();
         let meter = Arc::clone(&self.meter);
+        let looper_snap = Arc::clone(&self.looper_snapshot);
 
         let err_fn = |err| {
             eprintln!("Audio output stream error: {err}");
@@ -159,6 +163,7 @@ impl AudioEngine {
         stream_config.sample_rate = sample_rate;
         stream_config.buffer_size = BufferSize::Fixed(buffer_size);
 
+        let looper_snap_cb = Arc::clone(&looper_snap);
         let build_result = match sample_format {
             SampleFormat::F32 => device.build_output_stream(
                 stream_config.clone(),
@@ -172,6 +177,9 @@ impl AudioEngine {
                     let (peak_l, peak_r, rms_l, rms_r) =
                         dual_synth.render_interleaved(data, channels);
                     meter.update(peak_l, peak_r, rms_l, rms_r);
+                    if let Ok(mut snap) = looper_snap_cb.try_lock() {
+                        *snap = dual_synth.looper.get_snapshot();
+                    }
                 },
                 err_fn,
                 None,
@@ -179,6 +187,7 @@ impl AudioEngine {
             _ => {
                 let mut fallback_config = stream_config.clone();
                 fallback_config.buffer_size = BufferSize::Default;
+                let looper_snap_fb1 = Arc::clone(&looper_snap);
                 device.build_output_stream(
                     fallback_config,
                     move |data: &mut [f32], _: &OutputCallbackInfo| {
@@ -191,6 +200,9 @@ impl AudioEngine {
                         let (peak_l, peak_r, rms_l, rms_r) =
                             dual_synth.render_interleaved(data, channels);
                         meter.update(peak_l, peak_r, rms_l, rms_r);
+                        if let Ok(mut snap) = looper_snap_fb1.try_lock() {
+                            *snap = dual_synth.looper.get_snapshot();
+                        }
                     },
                     err_fn,
                     None,
@@ -209,6 +221,7 @@ impl AudioEngine {
                 self.command_sender = cmd_tx;
                 let event_rx_fb = self.event_receiver.clone();
                 let meter_fb = Arc::clone(&self.meter);
+                let looper_snap_fb2 = Arc::clone(&self.looper_snapshot);
                 let mut dual_synth_fb = DualSynthEngine::new(sample_rate as i32);
 
                 device
@@ -224,6 +237,9 @@ impl AudioEngine {
                             let (peak_l, peak_r, rms_l, rms_r) =
                                 dual_synth_fb.render_interleaved(data, channels);
                             meter_fb.update(peak_l, peak_r, rms_l, rms_r);
+                            if let Ok(mut snap) = looper_snap_fb2.try_lock() {
+                                *snap = dual_synth_fb.looper.get_snapshot();
+                            }
                         },
                         err_fn,
                         None,
@@ -365,6 +381,91 @@ impl AudioEngine {
     pub fn panic(&self) {
         let _ = self.command_sender.send(SynthCommand::Panic);
     }
+
+    /// Read the latest looper status snapshot.
+    pub fn looper_snapshot(&self) -> LooperSnapshot {
+        self.looper_snapshot
+            .lock()
+            .map(|s| s.clone())
+            .unwrap_or_default()
+    }
+
+    /// Arm or toggle Record on track (0 or 1).
+    pub fn looper_record(&self, track_idx: usize) {
+        let _ = self.command_sender.send(SynthCommand::LooperRecord(track_idx));
+    }
+
+    /// Arm or toggle Overdub on track (0 or 1).
+    pub fn looper_overdub(&self, track_idx: usize) {
+        let _ = self.command_sender.send(SynthCommand::LooperOverdub(track_idx));
+    }
+
+    /// Start or resume looper transport playback.
+    pub fn looper_play(&self) {
+        let _ = self.command_sender.send(SynthCommand::LooperPlay);
+    }
+
+    /// Stop looper transport playback.
+    pub fn looper_stop(&self) {
+        let _ = self.command_sender.send(SynthCommand::LooperStop);
+    }
+
+    /// Clear audio buffer of a specific track (0 or 1).
+    pub fn looper_clear(&self, track_idx: usize) {
+        let _ = self.command_sender.send(SynthCommand::LooperClear(track_idx));
+    }
+
+    /// Clear all tracks and reset playhead.
+    pub fn looper_clear_all(&self) {
+        let _ = self.command_sender.send(SynthCommand::LooperClearAll);
+    }
+
+    /// Set looper BPM tempo.
+    pub fn looper_set_bpm(&self, bpm: f32) {
+        let _ = self.command_sender.send(SynthCommand::LooperSetBpm(bpm));
+    }
+
+    /// Set loop bar length (1, 2, 4, 8).
+    pub fn looper_set_bars(&self, bars: u32) {
+        let _ = self.command_sender.send(SynthCommand::LooperSetBars(bars));
+    }
+
+    /// Toggle mute on track (0 or 1).
+    pub fn looper_toggle_mute(&self, track_idx: usize) {
+        let _ = self
+            .command_sender
+            .send(SynthCommand::LooperToggleMute(track_idx));
+    }
+
+    /// Export the combined looper audio mix to a 24-bit broadcast WAV file.
+    pub fn export_looper_wav(&self, custom_path: Option<PathBuf>) -> Result<PathBuf, String> {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        self.command_sender
+            .send(SynthCommand::LooperGetMixBuffers(tx))
+            .map_err(|e| format!("Audio engine is not running: {e}"))?;
+
+        let (mix_l, mix_r, sample_rate) = rx
+            .recv_timeout(std::time::Duration::from_millis(500))
+            .map_err(|_| "Timed out waiting for looper mix buffers from audio thread".to_string())?;
+
+        let has_signal = mix_l.iter().chain(mix_r.iter()).any(|&s| s.abs() > 0.0001);
+        if !has_signal {
+            return Err("No recorded loop audio found to export.".to_string());
+        }
+
+        let target_path = match custom_path {
+            Some(p) => p,
+            None => {
+                let dir = crate::wav_export::get_default_recordings_dir();
+                let snapshot = self.looper_snapshot();
+                let filename = crate::wav_export::generate_timestamped_filename(snapshot.bpm);
+                dir.join(filename)
+            }
+        };
+
+        crate::wav_export::export_to_wav(&mix_l, &mix_r, sample_rate as u32, &target_path)?;
+        Ok(target_path)
+    }
 }
 
 #[cfg(test)]
@@ -423,5 +524,24 @@ mod tests {
             engine.stop();
             assert_eq!(engine.is_running(), false);
         }
+    }
+
+    #[test]
+    fn test_audio_engine_looper_controls() {
+        let engine = AudioEngine::new(44100, 256);
+        let snap = engine.looper_snapshot();
+        assert_eq!(snap.bpm, 120.0);
+        assert_eq!(snap.bar_count, 4);
+        assert_eq!(snap.is_running, false);
+
+        engine.looper_set_bpm(128.0);
+        engine.looper_set_bars(2);
+        engine.looper_record(0);
+        engine.looper_overdub(1);
+        engine.looper_toggle_mute(0);
+        engine.looper_play();
+        engine.looper_stop();
+        engine.looper_clear(0);
+        engine.looper_clear_all();
     }
 }

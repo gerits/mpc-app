@@ -7,6 +7,7 @@ use std::sync::Arc;
 use rustysynth::{SoundFont, SoundFontError, Synthesizer, SynthesizerError, SynthesizerSettings};
 
 use crate::dsp::DspChain;
+use crate::looper::LooperEngine;
 use crate::types::{MidiEvent, RoutedEvent};
 
 /// Realtime commands sent from host/UI threads to the audio synthesis engine.
@@ -32,6 +33,26 @@ pub enum SynthCommand {
     SetDrumProgram { bank: u16, program: u8 },
     /// Set macro rotary knob parameter 0..=7 (CC 70..=77)
     SetMacroKnob { knob_index: u8, value: f32 },
+    /// Arm or toggle Record on looper track (0 or 1)
+    LooperRecord(usize),
+    /// Arm or toggle Overdub on looper track (0 or 1)
+    LooperOverdub(usize),
+    /// Start looper playback
+    LooperPlay,
+    /// Stop looper playback and rewind
+    LooperStop,
+    /// Clear a specific looper track
+    LooperClear(usize),
+    /// Clear all looper tracks
+    LooperClearAll,
+    /// Set looper BPM
+    LooperSetBpm(f32),
+    /// Set looper bar length (1, 2, 4, 8)
+    LooperSetBars(u32),
+    /// Toggle mute on a looper track
+    LooperToggleMute(usize),
+    /// Retrieve full mix buffers for WAV export
+    LooperGetMixBuffers(crossbeam_channel::Sender<(Vec<f32>, Vec<f32>, f32)>),
     /// Silence all active voices and reset MIDI controller parameters
     Panic,
 }
@@ -76,6 +97,7 @@ impl AudioMeter {
 pub struct DualSynthEngine {
     pub sample_rate: i32,
     pub dsp: DspChain,
+    pub looper: LooperEngine,
     melodic_synth: Option<Box<Synthesizer>>,
     drum_synth: Option<Box<Synthesizer>>,
     melodic_volume: f32,
@@ -98,6 +120,7 @@ impl DualSynthEngine {
         Self {
             sample_rate,
             dsp: DspChain::new(sample_rate as f32),
+            looper: LooperEngine::new(sample_rate as f32),
             melodic_synth: None,
             drum_synth: None,
             melodic_volume: 1.0,
@@ -114,6 +137,7 @@ impl DualSynthEngine {
     pub fn set_sample_rate(&mut self, sample_rate: i32) {
         self.sample_rate = sample_rate;
         self.dsp.set_sample_rate(sample_rate as f32);
+        self.looper.set_sample_rate(sample_rate as f32);
     }
 
     pub fn has_melodic_synth(&self) -> bool {
@@ -181,6 +205,37 @@ impl DualSynthEngine {
             }
             SynthCommand::SetMacroKnob { knob_index, value } => {
                 self.dsp.set_knob(knob_index, value);
+            }
+            SynthCommand::LooperRecord(track) => {
+                self.looper.record_track(track);
+            }
+            SynthCommand::LooperOverdub(track) => {
+                self.looper.overdub_track(track);
+            }
+            SynthCommand::LooperPlay => {
+                self.looper.play();
+            }
+            SynthCommand::LooperStop => {
+                self.looper.stop();
+            }
+            SynthCommand::LooperClear(track) => {
+                self.looper.clear_track(track);
+            }
+            SynthCommand::LooperClearAll => {
+                self.looper.clear_all();
+            }
+            SynthCommand::LooperSetBpm(bpm) => {
+                self.looper.set_bpm(bpm);
+            }
+            SynthCommand::LooperSetBars(bars) => {
+                self.looper.set_bars(bars);
+            }
+            SynthCommand::LooperToggleMute(track) => {
+                self.looper.toggle_mute(track);
+            }
+            SynthCommand::LooperGetMixBuffers(sender) => {
+                let (mix_l, mix_r) = self.looper.get_mix_buffers();
+                let _ = sender.send((mix_l, mix_r, self.sample_rate as f32));
             }
             SynthCommand::Panic => {
                 self.panic();
@@ -336,6 +391,9 @@ impl DualSynthEngine {
         // Process through DSP chain (SVF Filter -> Chorus -> Reverb -> Master Gain -> Soft Saturator)
         self.dsp.process_stereo(out_left, out_right);
 
+        // Process through 2-Track Looper Engine (record input, playback loops)
+        self.looper.process_stereo(out_left, out_right);
+
         let mut peak_left = 0.0f32;
         let mut peak_right = 0.0f32;
         let mut sum_sq_left = 0.0f32;
@@ -429,6 +487,9 @@ impl DualSynthEngine {
 
         // Process through DSP chain (Filter -> Chorus -> Reverb -> Master Gain -> Soft Saturator)
         self.dsp.process_stereo(mix_l, mix_r);
+
+        // Process through 2-Track Looper Engine (record input, playback loops)
+        self.looper.process_stereo(mix_l, mix_r);
 
         let mut peak_left = 0.0f32;
         let mut peak_right = 0.0f32;
@@ -613,5 +674,30 @@ mod tests {
 
         engine.handle_command(SynthCommand::ClearDrumSynth);
         assert_eq!(engine.has_drum_synth(), false);
+    }
+
+    #[test]
+    fn test_synth_looper_commands() {
+        let mut engine = DualSynthEngine::new(44100);
+        assert_eq!(engine.looper.is_running, false);
+
+        engine.handle_command(SynthCommand::LooperSetBpm(130.0));
+        assert_eq!(engine.looper.bpm, 130.0);
+
+        engine.handle_command(SynthCommand::LooperSetBars(2));
+        assert_eq!(engine.looper.bar_count, 2);
+
+        engine.handle_command(SynthCommand::LooperRecord(0));
+        assert_eq!(engine.looper.is_running, true);
+        assert_eq!(engine.looper.tracks[0].state, crate::looper::TrackState::Recording);
+
+        engine.handle_command(SynthCommand::LooperStop);
+        assert_eq!(engine.looper.is_running, false);
+
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        engine.handle_command(SynthCommand::LooperGetMixBuffers(tx));
+        let (mix_l, mix_r, sr) = rx.recv().unwrap();
+        assert_eq!(sr, 44100.0);
+        assert_eq!(mix_l.len(), mix_r.len());
     }
 }
