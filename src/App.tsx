@@ -3,6 +3,8 @@ import { Header } from './components/Header';
 import { InstrumentSelector } from './components/InstrumentSelector';
 import { KeyboardPreview } from './components/KeyboardPreview';
 import { PadMatrix } from './components/PadMatrix';
+import { KnobRack } from './components/KnobRack';
+import { LooperBar } from './components/LooperBar';
 import { api, onMidiEvent, onLooperSnapshot, type SystemStatus, type LooperSnapshot, type RoutedEvent, type CuratedPreset } from './types/ipc';
 
 export function App() {
@@ -111,7 +113,10 @@ export function App() {
       />
 
       {/* Main Workstation Workspace Shell */}
-      <main className="flex-1 bg-carbon p-4 flex flex-col gap-4 overflow-hidden">
+      <main className="flex-1 bg-carbon p-4 flex flex-col gap-3 overflow-hidden">
+        {/* Top: 2-Track Quick Looper & Transport Bar */}
+        <LooperBar snapshot={looperSnap} />
+
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
           {/* Left Column: Keyboard & Melodic Area */}
           <div className="lg:col-span-7 bg-chassis-850 border border-chassis-750 rounded-xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden gap-4">
@@ -122,22 +127,14 @@ export function App() {
           </div>
 
           {/* Right Column: Macro Knobs & Rubber Pads */}
-          <div className="lg:col-span-5 flex flex-col gap-4 min-h-0">
-            {/* Top Right: 8 Macro Rotary Knobs Placeholder (Wired in TASK-010) */}
-            <div className="bg-chassis-850 border border-chassis-750 rounded-xl p-4 shadow-lg">
-              <div className="flex items-center justify-between pb-2 border-b border-chassis-750 mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                  Macro Knobs (K1 - K8)
-                </h3>
-                <span className="text-[10px] font-mono text-slate-400">CC 70 - 77</span>
-              </div>
-              <div className="h-16 flex items-center justify-center text-slate-500 font-mono text-xs">
-                DSP Macro Controls (Cutoff, Res, Chorus, Reverb, Overdrive, Stems)
-              </div>
+          <div className="lg:col-span-5 flex flex-col gap-3 min-h-0">
+            {/* Top Right: 8 Macro Rotary Knobs */}
+            <div className="bg-chassis-850 border border-chassis-750 rounded-xl p-3 shadow-lg">
+              <KnobRack />
             </div>
 
             {/* Bottom Right: 2x4 MPC Rubber Pads */}
-            <div className="flex-1 bg-chassis-850 border border-chassis-750 rounded-xl p-4 shadow-lg flex flex-col justify-between overflow-y-auto">
+            <div className="flex-1 bg-chassis-850 border border-chassis-750 rounded-xl p-3 shadow-lg flex flex-col justify-between overflow-y-auto">
               <PadMatrix />
             </div>
           </div>

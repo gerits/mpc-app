@@ -1,7 +1,7 @@
 # TASK-010: Frontend Rotary Knobs & Looper Transport
 
 - **Ticket ID**: `TASK-010`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-007`, `TASK-008`
 - **Target Files**:
   - `src/components/KnobRack.tsx`
@@ -42,6 +42,6 @@ Build the interactive rotary macro knobs and the 2-track looper transport bar:
 
 ## 3. Acceptance Criteria
 
-- [ ] Turning knob K1 on the MPK mini 3 turns virtual Knob 1 on screen in real time.
-- [ ] Dragging Knob 1 with mouse sends updated parameter values to the Rust DSP chain.
-- [ ] Looper controls clearly show Recording, Overdubbing, and Playing states.
+- [x] Turning knob K1 on the MPK mini 3 turns virtual Knob 1 on screen in real time.
+- [x] Dragging Knob 1 with mouse sends updated parameter values to the Rust DSP chain.
+- [x] Looper controls clearly show Recording, Overdubbing, and Playing states.
