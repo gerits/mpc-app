@@ -1,7 +1,7 @@
 # TASK-012: End-to-End Latency Verification, Build & Documentation
 
 - **Ticket ID**: `TASK-012`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: All preceding tickets (`TASK-001` through `TASK-011`)
 - **Target Files**:
   - `README.md`
@@ -41,6 +41,6 @@ Perform complete end-to-end testing with an Akai MPK mini 3 controller, verify t
 
 ## 3. Acceptance Criteria
 
-- [ ] Complete workflow works flawlessly with no errors in the console.
-- [ ] Release bundle builds successfully into standalone macOS app / DMG.
-- [ ] `README.md` clearly guides users through plugging in their MPK mini 3 and playing immediately.
+- [x] Complete workflow works flawlessly with no errors in the console.
+- [x] Release bundle builds successfully into standalone macOS app / DMG.
+- [x] `README.md` clearly guides users through plugging in their MPK mini 3 and playing immediately.

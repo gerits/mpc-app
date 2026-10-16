@@ -210,6 +210,13 @@ impl LooperEngine {
     /// Start or resume transport playback.
     pub fn play(&mut self) {
         self.is_running = true;
+        let loop_len = self.loop_length_samples;
+        for track in &mut self.tracks {
+            if track.state == TrackState::Recording {
+                track.state = TrackState::Playing;
+                Self::apply_seam_smoothing(&mut track.buffer_l, &mut track.buffer_r, loop_len);
+            }
+        }
     }
 
     /// Stop transport playback and rewind playhead to beginning.
