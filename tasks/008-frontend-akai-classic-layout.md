@@ -1,7 +1,7 @@
 # TASK-008: Frontend Shell: Akai Classic Studio Chassis
 
 - **Ticket ID**: `TASK-008`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-001`, `TASK-007`
 - **Target Files**:
   - `src/App.tsx`
@@ -40,6 +40,6 @@ Build the main application shell using the user-approved **Variation 1: Akai Cla
 
 ## 3. Acceptance Criteria
 
-- [ ] Window matches the approved Akai Classic Studio visual style.
-- [ ] Stereo meter responds dynamically to sound output without dropping frames.
-- [ ] Responsive design gracefully scales across standard desktop resolutions.
+- [x] Window matches the approved Akai Classic Studio visual style.
+- [x] Stereo meter responds dynamically to sound output without dropping frames.
+- [x] Responsive design gracefully scales across standard desktop resolutions.

@@ -22,3 +22,36 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* CRT Scanline Texture for Vintage Phosphor OLED Screen */
+.bg-scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.45) 50%
+  ),
+  linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.04),
+    rgba(0, 255, 0, 0.02),
+    rgba(0, 0, 255, 0.04)
+  );
+  background-size: 100% 3px, 6px 100%;
+}
+
+/* Authentic Akai MPC Rubber Pad Bevels */
+.akai-pad-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), inset 0 1px 1px 0 rgba(255, 255, 255, 0.1), inset 0 -2px 4px 0 rgba(0, 0, 0, 0.6);
+}
+
+.akai-pad-active {
+  box-shadow: 0 0 18px rgba(229, 37, 33, 0.75), inset 0 0 10px rgba(229, 37, 33, 0.6);
+}
+
+/* Chassis Carbon Texture Pattern */
+.bg-carbon {
+  background-color: #121418;
+  background-image: radial-gradient(#1e222a 0.75px, transparent 0.75px), radial-gradient(#1e222a 0.75px, #121418 0.75px);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+
