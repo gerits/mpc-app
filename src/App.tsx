@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
-import { api, onMidiEvent, onLooperSnapshot, type SystemStatus, type LooperSnapshot, type RoutedEvent } from './types/ipc';
+import { InstrumentSelector } from './components/InstrumentSelector';
+import { KeyboardPreview } from './components/KeyboardPreview';
+import { PadMatrix } from './components/PadMatrix';
+import { api, onMidiEvent, onLooperSnapshot, type SystemStatus, type LooperSnapshot, type RoutedEvent, type CuratedPreset } from './types/ipc';
 
 export function App() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
@@ -87,8 +90,12 @@ export function App() {
   };
 
   const handleOpenSettings = () => {
-    // Will trigger Settings modal (wired in TASK-011)
     setLastMidiEvent('Opening Settings...');
+  };
+
+  const handlePresetChanged = (preset: CuratedPreset) => {
+    setLastMidiEvent(`Loaded: ${preset.name}`);
+    api.getSystemStatus().then(setStatus).catch(console.error);
   };
 
   return (
@@ -105,40 +112,18 @@ export function App() {
 
       {/* Main Workstation Workspace Shell */}
       <main className="flex-1 bg-carbon p-4 flex flex-col gap-4 overflow-hidden">
-        {/* Placeholder for Middle Performance Grid (TASK-009 & TASK-010) */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
           {/* Left Column: Keyboard & Melodic Area */}
-          <div className="lg:col-span-7 bg-chassis-850 border border-chassis-750 rounded-xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden">
-            <div className="flex items-center justify-between pb-3 border-b border-chassis-750">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-akai-red" />
-                <h2 className="text-sm font-bold tracking-wider uppercase text-slate-100">
-                  Melodic Synth & Keyboard
-                </h2>
-              </div>
-              <span className="text-xs font-mono text-slate-400 bg-chassis-800 px-2.5 py-1 rounded border border-chassis-700">
-                25 Velocity-Sensitive Keys
-              </span>
-            </div>
-
-            <div className="flex-1 flex items-center justify-center my-4 text-center text-slate-500 font-mono text-sm">
-              <div className="flex flex-col items-center gap-2">
-                <div className="text-akai-red font-bold text-xs uppercase tracking-widest">
-                  Ready for TASK-009
-                </div>
-                <div>KeyboardPreview & SoundFont Instrument Selector</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-chassis-750 text-xs text-slate-400 font-mono">
-              <span>Octave: C2 - C4</span>
-              <span>Velocity Curve: Linear</span>
+          <div className="lg:col-span-7 bg-chassis-850 border border-chassis-750 rounded-xl p-4 flex flex-col justify-between shadow-lg relative overflow-hidden gap-4">
+            <InstrumentSelector onPresetChanged={handlePresetChanged} />
+            <div className="mt-auto">
+              <KeyboardPreview />
             </div>
           </div>
 
-          {/* Right Column: Macro Knobs, Rubber Pads, Looper Transport */}
+          {/* Right Column: Macro Knobs & Rubber Pads */}
           <div className="lg:col-span-5 flex flex-col gap-4 min-h-0">
-            {/* Top Right: 8 Macro Rotary Knobs */}
+            {/* Top Right: 8 Macro Rotary Knobs Placeholder (Wired in TASK-010) */}
             <div className="bg-chassis-850 border border-chassis-750 rounded-xl p-4 shadow-lg">
               <div className="flex items-center justify-between pb-2 border-b border-chassis-750 mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
@@ -146,22 +131,14 @@ export function App() {
                 </h3>
                 <span className="text-[10px] font-mono text-slate-400">CC 70 - 77</span>
               </div>
-              <div className="h-20 flex items-center justify-center text-slate-500 font-mono text-xs">
+              <div className="h-16 flex items-center justify-center text-slate-500 font-mono text-xs">
                 DSP Macro Controls (Cutoff, Res, Chorus, Reverb, Overdrive, Stems)
               </div>
             </div>
 
             {/* Bottom Right: 2x4 MPC Rubber Pads */}
-            <div className="flex-1 bg-chassis-850 border border-chassis-750 rounded-xl p-4 shadow-lg flex flex-col justify-between">
-              <div className="flex items-center justify-between pb-2 border-b border-chassis-750 mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                  MPC Drum Pads (Bank A / B)
-                </h3>
-                <span className="text-[10px] font-mono text-slate-400">Channel 10 Percussion</span>
-              </div>
-              <div className="flex-1 flex items-center justify-center text-slate-500 font-mono text-xs">
-                8 Backlit Thick Rubber Pads with Note Repeat & Full Level
-              </div>
+            <div className="flex-1 bg-chassis-850 border border-chassis-750 rounded-xl p-4 shadow-lg flex flex-col justify-between overflow-y-auto">
+              <PadMatrix />
             </div>
           </div>
         </div>

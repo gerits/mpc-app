@@ -1,7 +1,7 @@
 # TASK-009: Frontend 2x4 Rubber Pads & Instrument Selector
 
 - **Ticket ID**: `TASK-009`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-007`, `TASK-008`
 - **Target Files**:
   - `src/components/PadMatrix.tsx`
@@ -43,6 +43,6 @@ Build the interactive performance components:
 
 ## 3. Acceptance Criteria
 
-- [ ] Striking Pad 1 on the MPK mini 3 lights up Pad 1 in the UI instantaneously.
-- [ ] Changing melodic instrument loads the new SoundFont preset immediately.
-- [ ] Clicking on-screen pads or keys plays the corresponding sound via Tauri IPC.
+- [x] Striking Pad 1 on the MPK mini 3 lights up Pad 1 in the UI instantaneously.
+- [x] Changing melodic instrument loads the new SoundFont preset immediately.
+- [x] Clicking on-screen pads or keys plays the corresponding sound via Tauri IPC.
