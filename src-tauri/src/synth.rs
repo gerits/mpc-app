@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use rustysynth::{SoundFont, SoundFontError, Synthesizer, SynthesizerError, SynthesizerSettings};
 
+use crate::dsp::DspChain;
 use crate::types::{MidiEvent, RoutedEvent};
 
 /// Realtime commands sent from host/UI threads to the audio synthesis engine.
@@ -29,6 +30,8 @@ pub enum SynthCommand {
     SetMelodicProgram { channel: u8, bank: u16, program: u8 },
     /// Select program/patch and bank for drum kit
     SetDrumProgram { bank: u16, program: u8 },
+    /// Set macro rotary knob parameter 0..=7 (CC 70..=77)
+    SetMacroKnob { knob_index: u8, value: f32 },
     /// Silence all active voices and reset MIDI controller parameters
     Panic,
 }
@@ -72,6 +75,7 @@ impl AudioMeter {
 /// so that drum hits never cut off sustained melodic notes or conflict with melodic soundfont banks.
 pub struct DualSynthEngine {
     pub sample_rate: i32,
+    pub dsp: DspChain,
     melodic_synth: Option<Box<Synthesizer>>,
     drum_synth: Option<Box<Synthesizer>>,
     melodic_volume: f32,
@@ -93,6 +97,7 @@ impl DualSynthEngine {
         const INITIAL_CAPACITY: usize = 1024;
         Self {
             sample_rate,
+            dsp: DspChain::new(sample_rate as f32),
             melodic_synth: None,
             drum_synth: None,
             melodic_volume: 1.0,
@@ -108,6 +113,7 @@ impl DualSynthEngine {
     /// Change sample rate. Existing synthesizers should be recreated if sample rate changes.
     pub fn set_sample_rate(&mut self, sample_rate: i32) {
         self.sample_rate = sample_rate;
+        self.dsp.set_sample_rate(sample_rate as f32);
     }
 
     pub fn has_melodic_synth(&self) -> bool {
@@ -172,6 +178,9 @@ impl DualSynthEngine {
                     synth.process_midi_message(ch, 0xB0, 0x00, bank as i32);
                     synth.process_midi_message(ch, 0xC0, program as i32, 0);
                 }
+            }
+            SynthCommand::SetMacroKnob { knob_index, value } => {
+                self.dsp.set_knob(knob_index, value);
             }
             SynthCommand::Panic => {
                 self.panic();
@@ -241,10 +250,10 @@ impl DualSynthEngine {
                 }
             }
             RoutedEvent::MacroKnob {
-                knob_index: _,
-                value: _,
+                knob_index,
+                value,
             } => {
-                // Forwarded to DSP chain in TASK-005
+                self.dsp.set_knob(*knob_index, *value);
             }
             RoutedEvent::Raw(midi_event) => match midi_event {
                 MidiEvent::ProgramChange { channel, program } => {
@@ -267,6 +276,7 @@ impl DualSynthEngine {
             synth.note_off_all(true);
             synth.reset_all_controllers();
         }
+        self.dsp.reset();
     }
 
     /// Render a block of stereo frames into separate left and right output slices.
@@ -314,9 +324,17 @@ impl DualSynthEngine {
             drm_r.fill(0.0);
         }
 
-        let mel_vol = self.melodic_volume;
-        let drm_vol = self.drum_volume;
-        let master_vol = self.master_volume;
+        let (keys_gain, drums_gain) = self.dsp.get_keys_drums_gains();
+        let mel_vol = self.melodic_volume * keys_gain;
+        let drm_vol = self.drum_volume * drums_gain;
+
+        for i in 0..frames {
+            out_left[i] = mel_l[i] * mel_vol + drm_l[i] * drm_vol;
+            out_right[i] = mel_r[i] * mel_vol + drm_r[i] * drm_vol;
+        }
+
+        // Process through DSP chain (SVF Filter -> Chorus -> Reverb -> Master Gain -> Soft Saturator)
+        self.dsp.process_stereo(out_left, out_right);
 
         let mut peak_left = 0.0f32;
         let mut peak_right = 0.0f32;
@@ -324,26 +342,19 @@ impl DualSynthEngine {
         let mut sum_sq_right = 0.0f32;
 
         for i in 0..frames {
-            let l = (mel_l[i] * mel_vol + drm_l[i] * drm_vol) * master_vol;
-            let r = (mel_r[i] * mel_vol + drm_r[i] * drm_vol) * master_vol;
+            let l = out_left[i];
+            let r = out_right[i];
 
-            // Soft-clip to guard against digital wrap-around distortion
-            let l_clamped = l.clamp(-1.0, 1.0);
-            let r_clamped = r.clamp(-1.0, 1.0);
-
-            out_left[i] = l_clamped;
-            out_right[i] = r_clamped;
-
-            let abs_l = l_clamped.abs();
-            let abs_r = r_clamped.abs();
+            let abs_l = l.abs();
+            let abs_r = r.abs();
             if abs_l > peak_left {
                 peak_left = abs_l;
             }
             if abs_r > peak_right {
                 peak_right = abs_r;
             }
-            sum_sq_left += l_clamped * l_clamped;
-            sum_sq_right += r_clamped * r_clamped;
+            sum_sq_left += l * l;
+            sum_sq_right += r * r;
         }
 
         let rms_left = if frames > 0 {
@@ -401,9 +412,23 @@ impl DualSynthEngine {
             drm_r.fill(0.0);
         }
 
-        let mel_vol = self.melodic_volume;
-        let drm_vol = self.drum_volume;
-        let master_vol = self.master_volume;
+        let (keys_gain, drums_gain) = self.dsp.get_keys_drums_gains();
+        let mel_vol = self.melodic_volume * keys_gain;
+        let drm_vol = self.drum_volume * drums_gain;
+
+        // Sum stems into scratch left/right for in-place DSP processing
+        for i in 0..frames {
+            self.scratch_mel_left[i] = self.scratch_mel_left[i] * mel_vol + self.scratch_drm_left[i] * drm_vol;
+            self.scratch_mel_right[i] = self.scratch_mel_right[i] * mel_vol + self.scratch_drm_right[i] * drm_vol;
+        }
+
+        let (mix_l, mix_r) = (
+            &mut self.scratch_mel_left[..frames],
+            &mut self.scratch_mel_right[..frames],
+        );
+
+        // Process through DSP chain (Filter -> Chorus -> Reverb -> Master Gain -> Soft Saturator)
+        self.dsp.process_stereo(mix_l, mix_r);
 
         let mut peak_left = 0.0f32;
         let mut peak_right = 0.0f32;
@@ -411,31 +436,28 @@ impl DualSynthEngine {
         let mut sum_sq_right = 0.0f32;
 
         for i in 0..frames {
-            let l = (mel_l[i] * mel_vol + drm_l[i] * drm_vol) * master_vol;
-            let r = (mel_r[i] * mel_vol + drm_r[i] * drm_vol) * master_vol;
+            let l = mix_l[i];
+            let r = mix_r[i];
 
-            let l_clamped = l.clamp(-1.0, 1.0);
-            let r_clamped = r.clamp(-1.0, 1.0);
-
-            let abs_l = l_clamped.abs();
-            let abs_r = r_clamped.abs();
+            let abs_l = l.abs();
+            let abs_r = r.abs();
             if abs_l > peak_left {
                 peak_left = abs_l;
             }
             if abs_r > peak_right {
                 peak_right = abs_r;
             }
-            sum_sq_left += l_clamped * l_clamped;
-            sum_sq_right += r_clamped * r_clamped;
+            sum_sq_left += l * l;
+            sum_sq_right += r * r;
 
             if channels == 2 {
-                out_interleaved[i * 2] = l_clamped;
-                out_interleaved[i * 2 + 1] = r_clamped;
+                out_interleaved[i * 2] = l;
+                out_interleaved[i * 2 + 1] = r;
             } else if channels == 1 {
-                out_interleaved[i] = (l_clamped + r_clamped) * 0.5;
+                out_interleaved[i] = (l + r) * 0.5;
             } else {
-                out_interleaved[i * channels] = l_clamped;
-                out_interleaved[i * channels + 1] = r_clamped;
+                out_interleaved[i * channels] = l;
+                out_interleaved[i * channels + 1] = r;
                 for c in 2..channels {
                     out_interleaved[i * channels + c] = 0.0;
                 }

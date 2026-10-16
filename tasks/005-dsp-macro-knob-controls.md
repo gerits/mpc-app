@@ -1,7 +1,7 @@
 # TASK-005: Macro DSP Controls & CC Mapping Chain
 
 - **Ticket ID**: `TASK-005`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-002`, `TASK-003`
 - **Target Files**:
   - `src-tauri/src/dsp.rs`
@@ -41,7 +41,7 @@ Implement a lightweight, low-latency DSP effects chain in Rust that processes th
 
 ## 3. Acceptance Criteria
 
-- [ ] Turning K1 audibly sweeps the filter cutoff frequency without popping or clicking.
-- [ ] Turning K5 introduces smooth stereo reverb.
-- [ ] Turning K8 shifts the balance cleanly between melodic keys and drums.
-- [ ] DSP processing adds < 0.5ms of latency to the audio callback.
+- [x] Turning K1 audibly sweeps the filter cutoff frequency without popping or clicking.
+- [x] Turning K5 introduces smooth stereo reverb.
+- [x] Turning K8 shifts the balance cleanly between melodic keys and drums.
+- [x] DSP processing adds < 0.5ms of latency to the audio callback.

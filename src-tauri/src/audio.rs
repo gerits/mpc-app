@@ -354,6 +354,13 @@ impl AudioEngine {
             .send(SynthCommand::SetDrumProgram { bank, program });
     }
 
+    /// Set macro rotary knob parameter 0..=7 (CC 70..=77).
+    pub fn set_macro_knob(&self, knob_index: u8, value: f32) {
+        let _ = self
+            .command_sender
+            .send(SynthCommand::SetMacroKnob { knob_index, value });
+    }
+
     /// Panic: immediately stop all sounding notes and reset controllers.
     pub fn panic(&self) {
         let _ = self.command_sender.send(SynthCommand::Panic);
