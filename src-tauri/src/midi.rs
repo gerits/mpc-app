@@ -5,12 +5,15 @@ use midir::{Ignore, MidiInput, MidiInputConnection, MidiInputPort};
 use crate::router::MidiRouter;
 use crate::types::{MidiDeviceInfo, RoutedEvent};
 
+pub type MidiEventCallback = Arc<dyn Fn(&RoutedEvent) + Send + Sync + 'static>;
+
 /// Native MIDI Input Engine handling device discovery, auto-detection of the Akai MPK mini,
 /// and low-latency event routing.
 pub struct MidiEngine {
     connection: Option<MidiInputConnection<()>>,
     current_device_name: Arc<Mutex<Option<String>>>,
     event_sender: Sender<RoutedEvent>,
+    event_callback: Option<MidiEventCallback>,
     router: Arc<MidiRouter>,
 }
 
@@ -21,6 +24,7 @@ impl MidiEngine {
             connection: None,
             current_device_name: Arc::new(Mutex::new(None)),
             event_sender,
+            event_callback: None,
             router: Arc::new(MidiRouter::new()),
         }
     }
@@ -31,8 +35,14 @@ impl MidiEngine {
             connection: None,
             current_device_name: Arc::new(Mutex::new(None)),
             event_sender,
+            event_callback: None,
             router: Arc::new(router),
         }
+    }
+
+    /// Set an optional event callback for dispatching routed events to the UI thread.
+    pub fn set_event_callback(&mut self, callback: Option<MidiEventCallback>) {
+        self.event_callback = callback;
     }
 
     /// Enumerates all currently available MIDI input ports on the system.
@@ -84,6 +94,7 @@ impl MidiEngine {
 
         let sender = self.event_sender.clone();
         let router = Arc::clone(&self.router);
+        let callback = self.event_callback.clone();
 
         let connection = midi_in
             .connect(
@@ -91,7 +102,10 @@ impl MidiEngine {
                 "ministation-input-port",
                 move |_timestamp, message, _| {
                     if let Some(routed) = router.route_raw(message) {
-                        let _ = sender.try_send(routed);
+                        let _ = sender.try_send(routed.clone());
+                        if let Some(ref cb) = callback {
+                            cb(&routed);
+                        }
                     }
                 },
                 (),

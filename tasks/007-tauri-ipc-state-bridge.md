@@ -1,7 +1,7 @@
 # TASK-007: Tauri IPC State, Commands & Realtime Events
 
 - **Ticket ID**: `TASK-007`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-001`, `TASK-002`, `TASK-003`, `TASK-005`, `TASK-006`
 - **Target Files**:
   - `src-tauri/src/commands.rs`
@@ -52,6 +52,6 @@ Connect the Rust audio/MIDI backend with the React frontend through Tauri v2's t
 
 ## 3. Acceptance Criteria
 
-- [ ] Frontend can call all Tauri commands and receive valid typed responses.
-- [ ] Hardware pad hit on the MPK mini 3 emits an event to the frontend in <2ms.
-- [ ] Rotating hardware knob K1 emits `midi-event` updating frontend knob state without lag.
+- [x] Frontend can call all Tauri commands and receive valid typed responses.
+- [x] Hardware pad hit on the MPK mini 3 emits an event to the frontend in <2ms.
+- [x] Rotating hardware knob K1 emits `midi-event` updating frontend knob state without lag.

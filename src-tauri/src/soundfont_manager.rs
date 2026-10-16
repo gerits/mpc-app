@@ -180,6 +180,28 @@ impl SoundFontManager {
 
         Ok(metadata)
     }
+
+    /// Select a specific soundfont file and program (bank and patch).
+    pub fn select_soundfont_program(
+        &mut self,
+        audio: &AudioEngine,
+        filename: &str,
+        is_drum: bool,
+        bank: u16,
+        patch: u8,
+    ) -> Result<(), String> {
+        let soundfont = self.get_or_load_soundfont(filename)?;
+        if is_drum {
+            audio.load_drum_soundfont(soundfont)?;
+            audio.set_drum_program(bank, patch);
+            self.active_drum_preset_id = Some(format!("{filename}:{bank}:{patch}"));
+        } else {
+            audio.load_melodic_soundfont(soundfont)?;
+            audio.set_melodic_program(0, bank, patch);
+            self.active_melodic_preset_id = Some(format!("{filename}:{bank}:{patch}"));
+        }
+        Ok(())
+    }
 }
 
 impl Default for SoundFontManager {
