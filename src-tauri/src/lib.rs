@@ -1,5 +1,7 @@
+pub mod audio;
 pub mod midi;
 pub mod router;
+pub mod synth;
 pub mod types;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

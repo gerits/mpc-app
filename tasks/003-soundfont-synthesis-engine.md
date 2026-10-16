@@ -1,7 +1,7 @@
 # TASK-003: Pure-Rust Dual SoundFont Synthesis & Audio Stream
 
 - **Ticket ID**: `TASK-003`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-001`, `TASK-002`
 - **Target Files**:
   - `src-tauri/src/audio.rs`
@@ -39,7 +39,7 @@ Set up the low-latency audio output thread using `cpal` and integrate a pure Rus
 
 ## 3. Acceptance Criteria
 
-- [ ] Audio stream starts cleanly without buffer underruns (xruns) or audible clicking.
-- [ ] Keyboard events trigger sounds through `melodic_synth`.
-- [ ] Pad events trigger percussion hits through `drum_synth` simultaneously without cutting off decaying melodic notes.
-- [ ] Changing soundfonts on the melodic synth does not interrupt drum playback.
+- [x] Audio stream starts cleanly without buffer underruns (xruns) or audible clicking.
+- [x] Keyboard events trigger sounds through `melodic_synth`.
+- [x] Pad events trigger percussion hits through `drum_synth` simultaneously without cutting off decaying melodic notes.
+- [x] Changing soundfonts on the melodic synth does not interrupt drum playback.
