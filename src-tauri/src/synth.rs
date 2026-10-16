@@ -25,8 +25,10 @@ pub enum SynthCommand {
     SetDrumVolume(f32),
     /// Set master output volume (0.0 ..= 2.0, default 0.9)
     SetMasterVolume(f32),
-    /// Select program/patch for melodic instrument
-    SetMelodicProgram { channel: u8, program: u8 },
+    /// Select program/patch and bank for melodic instrument
+    SetMelodicProgram { channel: u8, bank: u16, program: u8 },
+    /// Select program/patch and bank for drum kit
+    SetDrumProgram { bank: u16, program: u8 },
     /// Silence all active voices and reset MIDI controller parameters
     Panic,
 }
@@ -152,9 +154,23 @@ impl DualSynthEngine {
             SynthCommand::SetMasterVolume(vol) => {
                 self.master_volume = vol.clamp(0.0, 2.0);
             }
-            SynthCommand::SetMelodicProgram { channel, program } => {
+            SynthCommand::SetMelodicProgram {
+                channel,
+                bank,
+                program,
+            } => {
                 if let Some(ref mut synth) = self.melodic_synth {
-                    synth.process_midi_message(channel as i32, 0xC0, program as i32, 0);
+                    let ch = channel as i32;
+                    // CC 0: Bank Select MSB
+                    synth.process_midi_message(ch, 0xB0, 0x00, bank as i32);
+                    synth.process_midi_message(ch, 0xC0, program as i32, 0);
+                }
+            }
+            SynthCommand::SetDrumProgram { bank, program } => {
+                if let Some(ref mut synth) = self.drum_synth {
+                    let ch = Self::PERCUSSION_CHANNEL;
+                    synth.process_midi_message(ch, 0xB0, 0x00, bank as i32);
+                    synth.process_midi_message(ch, 0xC0, program as i32, 0);
                 }
             }
             SynthCommand::Panic => {

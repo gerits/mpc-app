@@ -1,7 +1,7 @@
 # TASK-004: Curated Open-Source SoundFonts & Asset Loader
 
 - **Ticket ID**: `TASK-004`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-001`, `TASK-003`
 - **Target Files**:
   - `src-tauri/assets/soundfonts/`
@@ -40,6 +40,6 @@ Provide a set of high-quality, open-source (CC0 / Public Domain / MIT) SoundFont
 
 ## 3. Acceptance Criteria
 
-- [ ] App launches with bundled default SoundFonts available immediately out-of-the-box.
-- [ ] Switching between Grand Piano, Rhodes, Synth, and Bass takes <50ms without audio glitches.
-- [ ] Dropping a third-party `.sf2` file into the user directory makes it selectable in the app.
+- [x] App launches with bundled default SoundFonts available immediately out-of-the-box.
+- [x] Switching between Grand Piano, Rhodes, Synth, and Bass takes <50ms without audio glitches.
+- [x] Dropping a third-party `.sf2` file into the user directory makes it selectable in the app.

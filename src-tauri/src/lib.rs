@@ -1,6 +1,8 @@
+pub mod assets;
 pub mod audio;
 pub mod midi;
 pub mod router;
+pub mod soundfont_manager;
 pub mod synth;
 pub mod types;
 

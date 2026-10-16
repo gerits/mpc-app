@@ -338,6 +338,22 @@ impl AudioEngine {
             .send(SynthCommand::SetMasterVolume(volume));
     }
 
+    /// Select melodic program (bank and patch).
+    pub fn set_melodic_program(&self, channel: u8, bank: u16, program: u8) {
+        let _ = self.command_sender.send(SynthCommand::SetMelodicProgram {
+            channel,
+            bank,
+            program,
+        });
+    }
+
+    /// Select drum kit program (bank and patch).
+    pub fn set_drum_program(&self, bank: u16, program: u8) {
+        let _ = self
+            .command_sender
+            .send(SynthCommand::SetDrumProgram { bank, program });
+    }
+
     /// Panic: immediately stop all sounding notes and reset controllers.
     pub fn panic(&self) {
         let _ = self.command_sender.send(SynthCommand::Panic);
