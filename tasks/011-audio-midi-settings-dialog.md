@@ -1,7 +1,7 @@
 # TASK-011: Audio/MIDI Configuration & Custom SoundFont Dialog
 
 - **Ticket ID**: `TASK-011`
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Dependencies**: `TASK-004`, `TASK-007`, `TASK-008`
 - **Target Files**:
   - `src/components/SettingsModal.tsx`
@@ -40,6 +40,6 @@ Provide a settings and configuration modal allowing users to:
 
 ## 3. Acceptance Criteria
 
-- [ ] Changing buffer size updates audio engine latency without crashing.
-- [ ] Clicking "Open SoundFonts Folder" opens the correct directory on macOS Finder.
-- [ ] Dropping a valid `.sf2` file adds it to the instrument list immediately.
+- [x] Changing buffer size updates audio engine latency without crashing.
+- [x] Clicking "Open SoundFonts Folder" opens the correct directory on macOS Finder.
+- [x] Dropping a valid `.sf2` file adds it to the instrument list immediately.

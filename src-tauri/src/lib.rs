@@ -46,6 +46,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_system_status,
             commands::get_audio_devices,
+            commands::set_buffer_size,
+            commands::open_soundfonts_folder,
             commands::get_midi_devices,
             commands::connect_midi_device,
             commands::disconnect_midi_device,

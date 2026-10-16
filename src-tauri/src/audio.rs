@@ -273,6 +273,18 @@ impl AudioEngine {
         self.is_running.store(false, Ordering::Relaxed);
     }
 
+    /// Change buffer size dynamically and restart the stream if active.
+    pub fn set_buffer_size(&mut self, buffer_size: u32) -> Result<(), String> {
+        let running = self.is_running();
+        self.config.buffer_size = buffer_size;
+        if running {
+            self.start()?;
+        } else {
+            self.current_buffer_size.store(buffer_size, Ordering::Relaxed);
+        }
+        Ok(())
+    }
+
     /// Hot-swaps the melodic soundfont lock-free without stopping audio or interrupting drums.
     pub fn load_melodic_soundfont(&self, soundfont: Arc<SoundFont>) -> Result<(), String> {
         let sample_rate = self.sample_rate() as i32;

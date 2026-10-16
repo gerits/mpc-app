@@ -78,7 +78,7 @@ Each task is defined in its own self-contained ticket file in the `tasks/` direc
 | **[TASK-008](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/008-frontend-akai-classic-layout.md)** | Frontend Shell: Akai Classic Studio Chassis | `src/App.tsx`, `src/components/Header.tsx`, `src/components/Meter.tsx` | `DONE` |
 | **[TASK-009](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/009-frontend-pads-and-keys.md)** | Frontend 2x4 Rubber Pads & Instrument Selector | `src/components/PadMatrix.tsx`, `src/components/KeyboardPreview.tsx` | `DONE` |
 | **[TASK-010](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/010-frontend-knobs-and-looper.md)** | Frontend Rotary Knobs & Looper Transport | `src/components/KnobRack.tsx`, `src/components/LooperBar.tsx` | `DONE` |
-| **[TASK-011](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/011-audio-midi-settings-dialog.md)** | Audio/MIDI Configuration & Custom SoundFont Dialog | `src/components/SettingsModal.tsx`, `src/components/SoundFontManager.tsx` | `TODO` |
+| **[TASK-011](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/011-audio-midi-settings-dialog.md)** | Audio/MIDI Configuration & Custom SoundFont Dialog | `src/components/SettingsModal.tsx`, `src/components/SoundFontManager.tsx` | `DONE` |
 | **[TASK-012](file:///Users/ruben.gerits/Developer/sources/mpc-app/tasks/012-end-to-end-integration-polish.md)** | End-to-End Latency Verification, Build & README | `README.md`, integration tests, release packaging | `TODO` |
 
 ---

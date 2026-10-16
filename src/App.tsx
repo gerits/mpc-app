@@ -5,6 +5,7 @@ import { KeyboardPreview } from './components/KeyboardPreview';
 import { PadMatrix } from './components/PadMatrix';
 import { KnobRack } from './components/KnobRack';
 import { LooperBar } from './components/LooperBar';
+import { SettingsModal } from './components/SettingsModal';
 import { api, onMidiEvent, onLooperSnapshot, type SystemStatus, type LooperSnapshot, type RoutedEvent, type CuratedPreset } from './types/ipc';
 
 export function App() {
@@ -13,6 +14,7 @@ export function App() {
   const [masterVolume, setMasterVolume] = useState<number>(0.9);
   const [lastMidiEvent, setLastMidiEvent] = useState<string>('Ready');
   const [midiActivity, setMidiActivity] = useState<boolean>(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Poll system status on mount & periodically
   useEffect(() => {
@@ -92,7 +94,7 @@ export function App() {
   };
 
   const handleOpenSettings = () => {
-    setLastMidiEvent('Opening Settings...');
+    setIsSettingsOpen(true);
   };
 
   const handlePresetChanged = (preset: CuratedPreset) => {
@@ -110,6 +112,14 @@ export function App() {
         onMasterVolumeChange={handleMasterVolumeChange}
         onPanic={handlePanic}
         onOpenSettings={handleOpenSettings}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        systemStatus={status}
+        onStatusUpdated={() => api.getSystemStatus().then(setStatus)}
       />
 
       {/* Main Workstation Workspace Shell */}

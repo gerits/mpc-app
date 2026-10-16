@@ -90,6 +90,8 @@ export type RoutedEvent =
 export const api = {
   getSystemStatus: () => invoke<SystemStatus>('get_system_status'),
   getAudioDevices: () => invoke<string[]>('get_audio_devices'),
+  setBufferSize: (bufferSize: number) => invoke<void>('set_buffer_size', { bufferSize }),
+  openSoundfontsFolder: () => invoke<string>('open_soundfonts_folder'),
   getMidiDevices: () => invoke<MidiDeviceInfo[]>('get_midi_devices'),
   connectMidiDevice: (deviceName: string) =>
     invoke<string>('connect_midi_device', { deviceName }),

@@ -31,6 +31,30 @@ pub fn get_audio_devices() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+pub fn set_buffer_size(state: State<'_, AppState>, buffer_size: u32) -> Result<(), String> {
+    let mut audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    audio.set_buffer_size(buffer_size)
+}
+
+#[tauri::command]
+pub fn open_soundfonts_folder() -> Result<String, String> {
+    let dir = crate::assets::ensure_user_soundfonts_dir().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(&dir).spawn();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("explorer").arg(&dir).spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("xdg-open").arg(&dir).spawn();
+    }
+    Ok(dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 pub fn get_midi_devices() -> Result<Vec<MidiDeviceInfo>, String> {
     MidiEngine::list_devices()
 }
