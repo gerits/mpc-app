@@ -1,17 +1,48 @@
-# Node / Bun
-node_modules
-dist
+# Node / Bun / Vite
+node_modules/
+dist/
+dist-ssr/
+*.local
 
 # Rust / Cargo
-target
-src-tauri/target
+target/
+src-tauri/target/
+**/*.rs.bk
 
-# OS
+# Tauri
+src-tauri/gen/android/
+src-tauri/gen/apple/
+
+# Logs & Debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Audio Exports & Recordings
+*.wav
+exports/
+
+# OS Specific
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
 
-# IDE
-.idea
-.vscode
+# IDE & Editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
 *.swp
 *.swo
+*~
