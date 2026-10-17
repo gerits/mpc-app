@@ -100,7 +100,7 @@ flowchart LR
 
 ```bash
 # Clone the repository
-git clone https://github.com/ruben-gerits/mpc-app.git
+git clone https://github.com/gerits/mpc-app.git
 cd mpc-app
 
 # Install frontend dependencies
