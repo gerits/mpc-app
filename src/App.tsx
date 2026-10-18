@@ -104,10 +104,8 @@ export function App() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-chassis-900 text-slate-200 select-none overflow-hidden">
-      {/* Top Header / Akai Vintage OLED / Master Volume / VU Meters */}
+      {/* Top Header: Master Volume / VU Meters / Controls */}
       <Header
-        status={status}
-        looperSnap={looperSnap}
         masterVolume={masterVolume}
         onMasterVolumeChange={handleMasterVolumeChange}
         onPanic={handlePanic}
@@ -163,14 +161,6 @@ export function App() {
             <span className="text-slate-500 font-semibold">MIDI IN:</span>
             <span className="text-slate-300 font-medium">{lastMidiEvent}</span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-4 text-slate-500">
-          <span>BUFFERS: 256 SPLS</span>
-          <span className="text-slate-700">|</span>
-          <span>LATENCY: ~5.8ms</span>
-          <span className="text-slate-700">|</span>
-          <span className="text-emerald-500/80 font-bold">PURE RUST SOUNDFONT ENGINE</span>
         </div>
       </footer>
     </div>

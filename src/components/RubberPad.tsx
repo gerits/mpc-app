@@ -59,10 +59,9 @@ export const RubberPad: React.FC<RubberPadProps> = ({
         minHeight: '84px',
       }}
     >
-      {/* Top Header: Pad Number & MIDI Note */}
-      <div className="flex items-center justify-between text-[10px] font-mono font-bold">
+      {/* Top Header: Pad Number */}
+      <div className="flex items-center justify-start text-[10px] font-mono font-bold">
         <span className={active ? 'text-white' : 'text-slate-400'}>PAD {padNumber}</span>
-        <span className={active ? 'text-white/80' : 'text-slate-500'}>#{note}</span>
       </div>
 
       {/* Center Pad Name / Drum Instrument */}

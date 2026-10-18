@@ -1,12 +1,8 @@
 import React from 'react';
 import { Volume2, AlertOctagon, Settings } from 'lucide-react';
-import { OledScreen } from './OledScreen';
 import { Meter } from './Meter';
-import type { SystemStatus, LooperSnapshot } from '../types/ipc';
 
 interface HeaderProps {
-  status: SystemStatus | null;
-  looperSnap: LooperSnapshot | null;
   masterVolume: number;
   onMasterVolumeChange: (vol: number) => void;
   onPanic: () => void;
@@ -14,8 +10,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  status,
-  looperSnap,
   masterVolume,
   onMasterVolumeChange,
   onPanic,
@@ -27,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-chassis-600 border border-chassis-500 shadow-inner" />
       <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-chassis-600 border border-chassis-500 shadow-inner" />
 
-      {/* Brand & Badge */}
+      {/* Brand Logo */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center">
           <div className="bg-white text-chassis-900 font-extrabold text-base tracking-tighter px-1.5 py-0.5 rounded-l">
@@ -37,19 +31,6 @@ export const Header: React.FC<HeaderProps> = ({
             STATION
           </div>
         </div>
-        <div className="hidden lg:flex flex-col">
-          <span className="text-[10px] font-mono tracking-widest text-slate-400 font-bold uppercase">
-            Performance Workstation
-          </span>
-          <span className="text-[9px] font-mono text-akai-red font-semibold">
-            AKAI MPK MINI 3 EDITION
-          </span>
-        </div>
-      </div>
-
-      {/* Center Vintage Phosphor OLED Display */}
-      <div className="flex-1 max-w-2xl mx-auto">
-        <OledScreen status={status} looperSnap={looperSnap} />
       </div>
 
       {/* Right Controls: Master Volume, Stereo Meter, Panic, and Settings */}

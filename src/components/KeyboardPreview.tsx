@@ -81,12 +81,9 @@ export const KeyboardPreview: React.FC = () => {
     <div className="flex flex-col gap-2.5 select-none">
       {/* Top Header: Octave Shift & Joystick Readout */}
       <div className="flex items-center justify-between pb-2 border-b border-chassis-750 font-mono text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-            25-KEY MINI KEYBOARD
-          </span>
-          <span className="text-[10px] text-slate-500">(CH 1)</span>
-        </div>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+          KEYBOARD
+        </span>
 
         <div className="flex items-center gap-3">
           {/* Pitch & Mod Indicators */}

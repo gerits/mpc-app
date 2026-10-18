@@ -14,8 +14,6 @@ export const InstrumentSelector: React.FC<InstrumentSelectorProps> = ({
   const [catalog, setCatalog] = useState<SoundFontCatalog | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [activeMelodicId, setActiveMelodicId] = useState<string>('grand-piano');
-  const [keysVolume, setKeysVolume] = useState<number>(1.0);
-  const [drumsVolume, setDrumsVolume] = useState<number>(1.0);
 
   const fetchCatalog = () => {
     api.getSoundfonts()
@@ -24,13 +22,6 @@ export const InstrumentSelector: React.FC<InstrumentSelectorProps> = ({
         if (cat.active_melodic_preset_id) {
           setActiveMelodicId(cat.active_melodic_preset_id);
         }
-      })
-      .catch(console.error);
-
-    api.getVolumes()
-      .then((v) => {
-        setKeysVolume(v.keys);
-        setDrumsVolume(v.drums);
       })
       .catch(console.error);
   };
@@ -73,64 +64,23 @@ export const InstrumentSelector: React.FC<InstrumentSelectorProps> = ({
     handleSelectPreset(filteredPresets[newIdx].id);
   };
 
-  const handleKeysVolumeChange = (vol: number) => {
-    setKeysVolume(vol);
-    api.setVolume('keys', vol).catch(console.error);
-  };
-
-  const handleDrumsVolumeChange = (vol: number) => {
-    setDrumsVolume(vol);
-    api.setVolume('drums', vol).catch(console.error);
-  };
-
   return (
     <div className="flex flex-col gap-3">
-      {/* Category Pills & SoundFont Engine Info */}
-      <div className="flex items-center justify-between pb-2 border-b border-chassis-750 gap-2 overflow-x-auto">
-        <div className="flex items-center gap-1.5 shrink-0">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold transition-all ${
-                selectedCategory === cat
-                  ? 'bg-akai-red text-white shadow-sm'
-                  : 'bg-chassis-900 text-slate-400 hover:text-white border border-chassis-750'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Stem Faders: Keys vs Drums Balance */}
-        <div className="flex items-center gap-3 shrink-0 font-mono text-[10px]">
-          <div className="flex items-center gap-1.5 bg-chassis-900 px-2 py-0.5 rounded border border-chassis-750">
-            <span className="text-slate-400">KEYS:</span>
-            <input
-              type="range"
-              min="0"
-              max="1.5"
-              step="0.05"
-              value={keysVolume}
-              onChange={(e) => handleKeysVolumeChange(parseFloat(e.target.value))}
-              className="w-12 h-1 bg-chassis-700 rounded appearance-none cursor-pointer accent-akai-red"
-            />
-          </div>
-
-          <div className="flex items-center gap-1.5 bg-chassis-900 px-2 py-0.5 rounded border border-chassis-750">
-            <span className="text-slate-400">DRUMS:</span>
-            <input
-              type="range"
-              min="0"
-              max="1.5"
-              step="0.05"
-              value={drumsVolume}
-              onChange={(e) => handleDrumsVolumeChange(parseFloat(e.target.value))}
-              className="w-12 h-1 bg-chassis-700 rounded appearance-none cursor-pointer accent-amber-500"
-            />
-          </div>
-        </div>
+      {/* Category Pills */}
+      <div className="flex items-center pb-2 border-b border-chassis-750 gap-1.5 overflow-x-auto">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold transition-all ${
+              selectedCategory === cat
+                ? 'bg-akai-red text-white shadow-sm'
+                : 'bg-chassis-900 text-slate-400 hover:text-white border border-chassis-750'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
       </div>
 
       {/* Preset Card with Left/Right Quick Navigator */}
@@ -144,11 +94,9 @@ export const InstrumentSelector: React.FC<InstrumentSelectorProps> = ({
         </button>
 
         <div className="flex-1 text-center font-mono overflow-hidden">
-          <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold flex items-center justify-center gap-1.5">
+          <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold flex items-center justify-center gap-1.5 mb-1">
             <Music className="w-3 h-3 text-akai-red" />
-            <span>
-              {currentPreset?.category ?? 'MELODIC'} &bull; PRESET {(currentPresetIndex + 1 || 1).toString().padStart(2, '0')} / {filteredPresets.length}
-            </span>
+            <span>SOUNDFONT PRESET</span>
           </div>
 
           {/* Preset Title Dropdown */}
@@ -159,14 +107,10 @@ export const InstrumentSelector: React.FC<InstrumentSelectorProps> = ({
           >
             {filteredPresets.map((p) => (
               <option key={p.id} value={p.id} className="bg-chassis-900 text-slate-200">
-                {p.name} ({p.soundfont_filename})
+                {p.name}
               </option>
             ))}
           </select>
-
-          <div className="text-[10px] text-slate-500 truncate mt-0.5">
-            Bank: {currentPreset?.bank ?? 0} &bull; Program: {currentPreset?.patch ?? 0} &bull; File: {currentPreset?.soundfont_filename ?? 'General_GM.sf2'}
-          </div>
         </div>
 
         <button

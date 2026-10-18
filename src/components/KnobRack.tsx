@@ -30,50 +30,50 @@ const KNOB_CONFIGS: KnobConfig[] = [
   },
   {
     index: 2,
-    label: 'Chorus',
+    label: 'Attack',
     cc: 72,
     defaultValue: 0.0,
     format: (v) => `${Math.round(v * 100)}%`,
   },
   {
     index: 3,
-    label: 'Reverb',
+    label: 'Release',
     cc: 73,
-    defaultValue: 0.25,
+    defaultValue: 0.5,
     format: (v) => `${Math.round(v * 100)}%`,
   },
   {
     index: 4,
-    label: 'Drive',
+    label: 'Reverb',
     cc: 74,
-    defaultValue: 0.0,
+    defaultValue: 0.25,
     format: (v) => `${Math.round(v * 100)}%`,
   },
   {
     index: 5,
-    label: 'Keys Vol',
+    label: 'Chorus',
     cc: 75,
-    defaultValue: 0.5,
-    format: (v) => `${Math.round(v * 200)}%`,
+    defaultValue: 0.0,
+    format: (v) => `${Math.round(v * 100)}%`,
   },
   {
     index: 6,
-    label: 'Drums Vol',
+    label: 'Drive',
     cc: 76,
-    defaultValue: 0.5,
-    format: (v) => `${Math.round(v * 200)}%`,
+    defaultValue: 0.0,
+    format: (v) => `${Math.round(v * 100)}%`,
   },
   {
     index: 7,
-    label: 'Master Out',
+    label: 'Balance',
     cc: 77,
-    defaultValue: 0.45,
-    format: (v) => `${Math.round(v * 200)}%`,
+    defaultValue: 0.5,
+    format: (v) => (v < 0.48 ? `D +${Math.round((0.5 - v) * 200)}%` : v > 0.52 ? `K +${Math.round((v - 0.5) * 200)}%` : 'Center'),
   },
 ];
 
 export const KnobRack: React.FC = () => {
-  const [knobs, setKnobs] = useState<number[]>([0.8, 0.1, 0.0, 0.25, 0.0, 0.5, 0.5, 0.45]);
+  const [knobs, setKnobs] = useState<number[]>([0.8, 0.1, 0.0, 0.5, 0.25, 0.0, 0.0, 0.5]);
 
   useEffect(() => {
     // Initial fetch from backend
@@ -120,13 +120,9 @@ export const KnobRack: React.FC = () => {
     <div className="flex flex-col gap-2">
       {/* Top Header */}
       <div className="flex items-center justify-between pb-2 border-b border-chassis-750 font-mono">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-            ROTARY MACROS (K1 - K8)
-          </span>
-          <span className="text-[10px] text-slate-500">CC 70 - 77</span>
-        </div>
-        <span className="text-[10px] text-slate-500 font-semibold">270° SWEEP</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+          MACRO CONTROLS
+        </span>
       </div>
 
       {/* 2x4 Knobs Grid */}
