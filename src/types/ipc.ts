@@ -51,6 +51,7 @@ export interface SystemStatus {
 }
 
 export type TrackState = 'empty' | 'recording' | 'playing' | 'overdubbing' | 'muted';
+export type MetronomeMode = 'while_running' | 'always';
 
 export interface LooperSnapshot {
   bpm: number;
@@ -63,6 +64,10 @@ export interface LooperSnapshot {
   track2_state: TrackState;
   track1_has_audio: boolean;
   track2_has_audio: boolean;
+  metronome_enabled?: boolean;
+  metronome_volume?: number;
+  metronome_mode?: MetronomeMode;
+  metronome_is_ticking?: boolean;
 }
 
 export interface AudioMeterPayload {
@@ -132,6 +137,12 @@ export const api = {
   looperSetBpm: (bpm: number) => invoke<void>('looper_set_bpm', { bpm }),
   looperSetBars: (bars: number) => invoke<void>('looper_set_bars', { bars }),
   looperToggleMute: (track: number) => invoke<void>('looper_toggle_mute', { track }),
+  looperSetMetronome: (enabled: boolean) =>
+    invoke<void>('looper_set_metronome', { enabled }),
+  looperSetMetronomeVolume: (volume: number) =>
+    invoke<void>('looper_set_metronome_volume', { volume }),
+  looperSetMetronomeMode: (mode: MetronomeMode) =>
+    invoke<void>('looper_set_metronome_mode', { mode }),
   looperExport: (customPath?: string) =>
     invoke<string>('looper_export', { customPath: customPath ?? null }),
   getLooperSnapshot: () => invoke<LooperSnapshot>('get_looper_snapshot'),

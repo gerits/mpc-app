@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Volume2, Cpu, Music, Sliders, RefreshCw } from 'lucide-react';
 import { SoundFontManager } from './SoundFontManager';
-import { api, type MidiDeviceInfo, type SystemStatus } from '../types/ipc';
+import { api, type MidiDeviceInfo, type SystemStatus, type MetronomeMode } from '../types/ipc';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -22,6 +22,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [selectedBuffer, setSelectedBuffer] = useState<number>(systemStatus?.buffer_size ?? 256);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  // Metronome settings state
+  const [metroEnabled, setMetroEnabled] = useState<boolean>(false);
+  const [metroVolume, setMetroVolume] = useState<number>(0.7);
+  const [metroMode, setMetroMode] = useState<MetronomeMode>('while_running');
+
   const loadDevices = () => {
     api.getAudioDevices()
       .then(setAudioDevices)
@@ -38,6 +43,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (systemStatus?.buffer_size) {
         setSelectedBuffer(systemStatus.buffer_size);
       }
+      api.getLooperSnapshot().then((snap) => {
+        if (snap.metronome_enabled !== undefined) setMetroEnabled(snap.metronome_enabled);
+        if (snap.metronome_volume !== undefined) setMetroVolume(snap.metronome_volume);
+        if (snap.metronome_mode !== undefined) setMetroMode(snap.metronome_mode);
+      }).catch(console.error);
     }
   }, [isOpen, systemStatus]);
 
@@ -198,6 +208,100 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <option value={1024}>1024 samples (23.2 ms) - High Stability</option>
                     </select>
                   </div>
+                </div>
+              </div>
+
+              {/* Metronome & Click Monitor Section */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-200 uppercase text-xs flex items-center gap-2">
+                    <span className="text-akai-red font-bold text-sm">⏱</span>
+                    Metronome & Click Track (Loop Isolated)
+                  </h4>
+                  <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded">
+                    Audition Only • Never in Loop/WAV
+                  </span>
+                </div>
+
+                <div className="bg-chassis-900 border border-chassis-750 p-4 rounded-xl flex flex-col gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Toggle Metronome */}
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Metronome State</span>
+                      <button
+                        onClick={() => {
+                          const next = !metroEnabled;
+                          setMetroEnabled(next);
+                          api.looperSetMetronome(next).catch(console.error);
+                        }}
+                        className={`p-2 rounded-lg text-xs font-bold transition-all border ${
+                          metroEnabled
+                            ? 'bg-akai-red text-white border-white shadow'
+                            : 'bg-chassis-800 border-chassis-700 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        {metroEnabled ? 'CLICK ENABLED (ON)' : 'CLICK MUTED (OFF)'}
+                      </button>
+                    </div>
+
+                    {/* Volume Slider */}
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-slate-400 uppercase font-bold">Click Volume</span>
+                        <span className="text-white font-bold">{Math.round(metroVolume * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1.5"
+                        step="0.05"
+                        value={metroVolume}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          setMetroVolume(v);
+                          api.looperSetMetronomeVolume(v).catch(console.error);
+                        }}
+                        className="w-full accent-akai-red cursor-pointer h-2 bg-chassis-750 rounded-lg appearance-none mt-2"
+                      />
+                    </div>
+
+                    {/* Mode Selector */}
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Trigger Mode</span>
+                      <div className="grid grid-cols-2 gap-1 bg-chassis-800 p-1 rounded-lg border border-chassis-700">
+                        <button
+                          onClick={() => {
+                            setMetroMode('while_running');
+                            api.looperSetMetronomeMode('while_running').catch(console.error);
+                          }}
+                          className={`py-1 px-1 rounded text-[10px] font-bold text-center transition-all ${
+                            metroMode === 'while_running'
+                              ? 'bg-akai-red text-white'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Play / Rec
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMetroMode('always');
+                            api.looperSetMetronomeMode('always').catch(console.error);
+                          }}
+                          className={`py-1 px-1 rounded text-[10px] font-bold text-center transition-all ${
+                            metroMode === 'always'
+                              ? 'bg-akai-red text-white'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Always On
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400">
+                    The metronome click uses a sample-accurate synthesized high/low woodblock sound. It is mixed directly into the headphone/speaker monitor output so it is audible while recording, but is mathematically isolated from looper recording buffers and WAV exports.
+                  </p>
                 </div>
               </div>
 

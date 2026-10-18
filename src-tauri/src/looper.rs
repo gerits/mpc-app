@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::metronome::{Metronome, MetronomeMode};
+
 /// Operating state of an individual looper track.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -58,6 +60,14 @@ pub struct LooperSnapshot {
     pub track2_state: TrackState,
     pub track1_has_audio: bool,
     pub track2_has_audio: bool,
+    #[serde(default)]
+    pub metronome_enabled: bool,
+    #[serde(default)]
+    pub metronome_volume: f32,
+    #[serde(default)]
+    pub metronome_mode: MetronomeMode,
+    #[serde(default)]
+    pub metronome_is_ticking: bool,
 }
 
 impl Default for LooperSnapshot {
@@ -73,6 +83,10 @@ impl Default for LooperSnapshot {
             track2_state: TrackState::Empty,
             track1_has_audio: false,
             track2_has_audio: false,
+            metronome_enabled: false,
+            metronome_volume: Metronome::DEFAULT_VOLUME,
+            metronome_mode: MetronomeMode::WhileRunning,
+            metronome_is_ticking: false,
         }
     }
 }
@@ -88,6 +102,7 @@ pub struct LooperEngine {
     pub is_running: bool,
     pub tracks: [LooperTrack; 2],
     pub overdub_decay: f32,
+    pub metronome: Metronome,
 }
 
 impl LooperEngine {
@@ -102,6 +117,9 @@ impl LooperEngine {
         let beats = Self::DEFAULT_BEATS;
 
         let loop_len = Self::calculate_loop_samples(sr, bpm, beats, bars);
+        let mut metronome = Metronome::new(sr);
+        metronome.set_bpm(bpm);
+        metronome.set_beats_per_bar(beats);
 
         Self {
             sample_rate: sr,
@@ -113,6 +131,7 @@ impl LooperEngine {
             is_running: false,
             tracks: [LooperTrack::new(loop_len), LooperTrack::new(loop_len)],
             overdub_decay: 0.95,
+            metronome,
         }
     }
 
@@ -124,11 +143,13 @@ impl LooperEngine {
 
     pub fn set_sample_rate(&mut self, sample_rate: f32) {
         self.sample_rate = sample_rate.max(1000.0);
+        self.metronome.set_sample_rate(self.sample_rate);
         self.recalculate_length();
     }
 
     pub fn set_bpm(&mut self, bpm: f32) {
         self.bpm = bpm.clamp(40.0, 300.0);
+        self.metronome.set_bpm(self.bpm);
         self.recalculate_length();
     }
 
@@ -210,6 +231,7 @@ impl LooperEngine {
     /// Start or resume transport playback.
     pub fn play(&mut self) {
         self.is_running = true;
+        self.metronome.reset_standalone_phase();
         let loop_len = self.loop_length_samples;
         for track in &mut self.tracks {
             if track.state == TrackState::Recording {
@@ -223,6 +245,7 @@ impl LooperEngine {
     pub fn stop(&mut self) {
         self.is_running = false;
         self.playhead = 0;
+        self.metronome.reset_standalone_phase();
 
         for track in &mut self.tracks {
             if track.state == TrackState::Recording || track.state == TrackState::Overdubbing {
@@ -262,6 +285,7 @@ impl LooperEngine {
         }
         self.playhead = 0;
         self.is_running = false;
+        self.metronome.reset_standalone_phase();
     }
 
     /// Query the current progress snapshot.
@@ -275,6 +299,7 @@ impl LooperEngine {
         let samples_per_beat = samples_per_bar / self.beats_per_bar.max(1) as f32;
         let beat_within_bar = ((self.playhead as f32 % samples_per_bar) / samples_per_beat).floor() as u32 + 1;
         let current_beat = beat_within_bar.min(self.beats_per_bar);
+        let is_ticking = self.metronome.is_ticking(self.is_running);
 
         LooperSnapshot {
             bpm: self.bpm,
@@ -287,6 +312,10 @@ impl LooperEngine {
             track2_state: self.tracks[1].state,
             track1_has_audio: self.tracks[0].has_audio,
             track2_has_audio: self.tracks[1].has_audio,
+            metronome_enabled: self.metronome.enabled,
+            metronome_volume: self.metronome.volume,
+            metronome_mode: self.metronome.mode,
+            metronome_is_ticking: is_ticking,
         }
     }
 
@@ -326,15 +355,25 @@ impl LooperEngine {
 
     /// Realtime processing callback inside the audio engine thread.
     /// Ingests live performance audio when recording/overdubbing and mixes loop audio into output.
+    /// Metronome clicks are added directly to output monitor buffers and are never recorded into loop tracks.
     pub fn process_stereo(&mut self, left: &mut [f32], right: &mut [f32]) {
         assert_eq!(left.len(), right.len());
-        if !self.is_running || self.loop_length_samples == 0 {
+        if !self.is_running {
+            if self.metronome.enabled && self.metronome.mode == MetronomeMode::Always {
+                self.metronome.process_stereo_stopped(left, right);
+            }
+            return;
+        }
+
+        if self.loop_length_samples == 0 {
             return;
         }
 
         let frames = left.len();
         let loop_len = self.loop_length_samples;
         let decay = self.overdub_decay;
+        let total_beats = self.bar_count * self.beats_per_bar;
+        let beats_per_bar = self.beats_per_bar;
 
         for i in 0..frames {
             let pos = self.playhead;
@@ -342,6 +381,8 @@ impl LooperEngine {
             let in_r = right[i];
 
             // 1. Process recording & playback across both tracks
+            // Notice: track buffers receive ONLY in_l and in_r (live performance audio)
+            // BEFORE any metronome click is added!
             for track in &mut self.tracks {
                 match track.state {
                     TrackState::Recording => {
@@ -369,7 +410,18 @@ impl LooperEngine {
                 }
             }
 
-            // 2. Advance playhead
+            // 2. Synthesize metronome click into monitor output ONLY.
+            // This is audible to the performer but never captured into track.buffer_l or track.buffer_r.
+            let metro_click = self.metronome.process_sample_running(
+                pos,
+                loop_len,
+                total_beats,
+                beats_per_bar,
+            );
+            left[i] += metro_click;
+            right[i] += metro_click;
+
+            // 3. Advance playhead
             self.playhead += 1;
             if self.playhead >= loop_len {
                 self.playhead = 0;
@@ -484,5 +536,44 @@ mod tests {
         assert_eq!(snap.current_beat, 1);
         assert_eq!(snap.progress, 0.0);
         assert!(snap.is_running);
+    }
+
+    #[test]
+    fn test_metronome_not_in_recorded_loop() {
+        let mut looper = LooperEngine::new(44100.0);
+        looper.set_bpm(120.0);
+        looper.set_bars(1);
+        looper.metronome.set_enabled(true);
+        looper.metronome.set_volume(1.0);
+
+        // Arm track 0 for recording
+        looper.record_track(0);
+
+        let loop_len = looper.loop_length_samples;
+        // Provide pure silence as user performance input
+        let mut left = vec![0.0f32; loop_len];
+        let mut right = vec![0.0f32; loop_len];
+
+        // Process audio for 1 full loop pass with metronome enabled
+        looper.process_stereo(&mut left, &mut right);
+
+        // 1. Output monitor buffers MUST have received metronome clicks so the user heard the beat
+        let max_output_l = left.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        let max_output_r = right.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        assert!(max_output_l > 0.1, "Output monitor must contain audible metronome clicks (got {max_output_l})");
+        assert!(max_output_r > 0.1, "Output monitor must contain audible metronome clicks (got {max_output_r})");
+
+        // 2. Track 0 recorded buffer MUST NOT contain any metronome click (must be pure 0.0)!
+        let max_recorded_l = looper.tracks[0].buffer_l.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        let max_recorded_r = looper.tracks[0].buffer_r.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        assert_eq!(max_recorded_l, 0.0, "Recorded track left buffer must NOT contain any metronome sound");
+        assert_eq!(max_recorded_r, 0.0, "Recorded track right buffer must NOT contain any metronome sound");
+
+        // 3. Combined mix buffers for WAV export MUST NOT contain any metronome click!
+        let (mix_l, mix_r) = looper.get_mix_buffers();
+        let max_mix_l = mix_l.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        let max_mix_r = mix_r.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+        assert_eq!(max_mix_l, 0.0, "WAV export mix buffers must NOT contain any metronome sound");
+        assert_eq!(max_mix_r, 0.0, "WAV export mix buffers must NOT contain any metronome sound");
     }
 }

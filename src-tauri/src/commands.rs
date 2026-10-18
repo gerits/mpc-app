@@ -245,6 +245,31 @@ pub fn looper_toggle_mute(state: State<'_, AppState>, track: usize) -> Result<()
 }
 
 #[tauri::command]
+pub fn looper_set_metronome(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    audio.looper_set_metronome(enabled);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn looper_set_metronome_volume(state: State<'_, AppState>, volume: f32) -> Result<(), String> {
+    let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    audio.looper_set_metronome_volume(volume);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn looper_set_metronome_mode(state: State<'_, AppState>, mode: String) -> Result<(), String> {
+    let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    let m = match mode.to_lowercase().as_str() {
+        "always" => crate::metronome::MetronomeMode::Always,
+        _ => crate::metronome::MetronomeMode::WhileRunning,
+    };
+    audio.looper_set_metronome_mode(m);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn looper_export(
     state: State<'_, AppState>,
     custom_path: Option<String>,

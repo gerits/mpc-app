@@ -51,6 +51,12 @@ pub enum SynthCommand {
     LooperSetBars(u32),
     /// Toggle mute on a looper track
     LooperToggleMute(usize),
+    /// Enable or disable looper metronome
+    LooperSetMetronome(bool),
+    /// Set looper metronome volume (0.0 ..= 2.0)
+    LooperSetMetronomeVolume(f32),
+    /// Set looper metronome mode (while_running or always)
+    LooperSetMetronomeMode(crate::metronome::MetronomeMode),
     /// Retrieve full mix buffers for WAV export
     LooperGetMixBuffers(crossbeam_channel::Sender<(Vec<f32>, Vec<f32>, f32)>),
     /// Silence all active voices and reset MIDI controller parameters
@@ -232,6 +238,15 @@ impl DualSynthEngine {
             }
             SynthCommand::LooperToggleMute(track) => {
                 self.looper.toggle_mute(track);
+            }
+            SynthCommand::LooperSetMetronome(enabled) => {
+                self.looper.metronome.set_enabled(enabled);
+            }
+            SynthCommand::LooperSetMetronomeVolume(vol) => {
+                self.looper.metronome.set_volume(vol);
+            }
+            SynthCommand::LooperSetMetronomeMode(mode) => {
+                self.looper.metronome.set_mode(mode);
             }
             SynthCommand::LooperGetMixBuffers(sender) => {
                 let (mix_l, mix_r) = self.looper.get_mix_buffers();

@@ -449,6 +449,27 @@ impl AudioEngine {
             .send(SynthCommand::LooperToggleMute(track_idx));
     }
 
+    /// Enable or disable metronome click.
+    pub fn looper_set_metronome(&self, enabled: bool) {
+        let _ = self
+            .command_sender
+            .send(SynthCommand::LooperSetMetronome(enabled));
+    }
+
+    /// Set metronome click volume (0.0 ..= 2.0).
+    pub fn looper_set_metronome_volume(&self, volume: f32) {
+        let _ = self
+            .command_sender
+            .send(SynthCommand::LooperSetMetronomeVolume(volume));
+    }
+
+    /// Set metronome mode (while_running or always).
+    pub fn looper_set_metronome_mode(&self, mode: crate::metronome::MetronomeMode) {
+        let _ = self
+            .command_sender
+            .send(SynthCommand::LooperSetMetronomeMode(mode));
+    }
+
     /// Export the combined looper audio mix to a 24-bit broadcast WAV file.
     pub fn export_looper_wav(&self, custom_path: Option<PathBuf>) -> Result<PathBuf, String> {
         let (tx, rx) = crossbeam_channel::bounded(1);

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Play,
   Square,
@@ -8,8 +8,9 @@ import {
   VolumeX,
   Volume2,
   Radio,
+  ChevronDown,
 } from 'lucide-react';
-import { api, type LooperSnapshot } from '../types/ipc';
+import { api, type LooperSnapshot, type MetronomeMode } from '../types/ipc';
 
 interface LooperBarProps {
   snapshot: LooperSnapshot | null;
@@ -20,6 +21,13 @@ export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
   const [bpm, setBpm] = useState<number>(snapshot?.bpm ?? 120);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  // Metronome local states
+  const [metroEnabled, setMetroEnabled] = useState<boolean>(snapshot?.metronome_enabled ?? false);
+  const [metroVolume, setMetroVolume] = useState<number>(snapshot?.metronome_volume ?? 0.7);
+  const [metroMode, setMetroMode] = useState<MetronomeMode>(snapshot?.metronome_mode ?? 'while_running');
+  const [showMetroMenu, setShowMetroMenu] = useState<boolean>(false);
+  const metroMenuRef = useRef<HTMLDivElement>(null);
 
   // Tap tempo state
   const lastTapTime = useRef<number>(0);
@@ -32,6 +40,71 @@ export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
   const currentBeat = snapshot?.current_beat ?? 1;
   const progress = snapshot?.progress ?? 0;
   const barCount = snapshot?.bar_count ?? 4;
+  const isTicking = snapshot?.metronome_is_ticking ?? false;
+
+  // Sync metronome state from looper snapshot broadcasts
+  useEffect(() => {
+    if (snapshot?.metronome_enabled !== undefined) {
+      setMetroEnabled(snapshot.metronome_enabled);
+    }
+    if (snapshot?.metronome_volume !== undefined) {
+      setMetroVolume(snapshot.metronome_volume);
+    }
+    if (snapshot?.metronome_mode !== undefined) {
+      setMetroMode(snapshot.metronome_mode);
+    }
+  }, [snapshot?.metronome_enabled, snapshot?.metronome_volume, snapshot?.metronome_mode]);
+
+  // Close popup menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (metroMenuRef.current && !metroMenuRef.current.contains(e.target as Node)) {
+        setShowMetroMenu(false);
+      }
+    };
+    if (showMetroMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMetroMenu]);
+
+  // Global hotkey: 'M' toggles metronome on/off
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        const next = !metroEnabled;
+        setMetroEnabled(next);
+        api.looperSetMetronome(next).catch(console.error);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [metroEnabled]);
+
+  const handleToggleMetronome = () => {
+    const next = !metroEnabled;
+    setMetroEnabled(next);
+    api.looperSetMetronome(next).catch(console.error);
+  };
+
+  const handleMetroVolumeChange = (vol: number) => {
+    const clamped = Math.max(0, Math.min(2, vol));
+    setMetroVolume(clamped);
+    api.looperSetMetronomeVolume(clamped).catch(console.error);
+  };
+
+  const handleMetroModeChange = (mode: MetronomeMode) => {
+    setMetroMode(mode);
+    api.looperSetMetronomeMode(mode).catch(console.error);
+  };
 
   const currentTrackState = selectedTrack === 0 ? t1State : t2State;
 
@@ -322,7 +395,7 @@ export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
           </div>
         </div>
 
-        {/* Right Tempo BPM & WAV Export */}
+        {/* Right Tempo BPM, Metronome & WAV Export */}
         <div className="flex items-center gap-3">
           {/* BPM Controls */}
           <div className="flex items-center gap-1.5 bg-chassis-900 px-2.5 py-1 rounded-lg border border-chassis-700 font-mono">
@@ -342,6 +415,134 @@ export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
             >
               TAP
             </button>
+          </div>
+
+          {/* Metronome Control with Volume & Mode Menu */}
+          <div className="relative flex items-center" ref={metroMenuRef}>
+            <div className="flex items-center rounded-lg border border-chassis-700 bg-chassis-900 overflow-hidden shadow">
+              <button
+                onClick={handleToggleMetronome}
+                title={`Metronome (Key 'M'): ${metroEnabled ? 'ON' : 'OFF'}. Audible click only, never recorded into loop tracks.`}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 font-mono text-xs font-bold transition-all select-none ${
+                  metroEnabled
+                    ? isTicking
+                      ? currentBeat === 1
+                        ? 'bg-akai-red text-white shadow-[0_0_12px_rgba(229,37,33,0.95)]'
+                        : 'bg-amber-500 text-chassis-950 shadow-[0_0_8px_rgba(245,166,35,0.85)]'
+                      : 'bg-chassis-750 text-amber-400'
+                    : 'text-slate-400 hover:text-white hover:bg-chassis-800'
+                }`}
+              >
+                {/* Metronome pyramid icon with animated swinging arm */}
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polygon points="12 2 5 22 19 22" />
+                  <line
+                    x1="12"
+                    y1="19"
+                    x2={isTicking ? (currentBeat % 2 === 0 ? '16' : '8') : '14'}
+                    y2={isTicking ? '7' : '8'}
+                  />
+                  <circle
+                    cx={isTicking ? (currentBeat % 2 === 0 ? 16 : 8) : 14}
+                    cy={isTicking ? 7 : 8}
+                    r="1.5"
+                    fill="currentColor"
+                  />
+                </svg>
+                <span>METRO</span>
+                {metroEnabled && (
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isTicking
+                        ? currentBeat === 1
+                          ? 'bg-white animate-ping'
+                          : 'bg-chassis-950'
+                        : 'bg-amber-400'
+                    }`}
+                  />
+                )}
+              </button>
+
+              {/* Settings Dropdown Caret */}
+              <button
+                onClick={() => setShowMetroMenu(!showMetroMenu)}
+                title="Metronome Volume & Mode"
+                className="px-1.5 py-2 text-slate-400 hover:text-white hover:bg-chassis-800 border-l border-chassis-750 transition-colors"
+              >
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Metronome Settings Popover */}
+            {showMetroMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 p-3 bg-chassis-900 border border-chassis-700 rounded-xl shadow-2xl z-50 flex flex-col gap-2.5 font-mono text-xs">
+                <div className="flex items-center justify-between pb-1.5 border-b border-chassis-750">
+                  <span className="font-bold text-white text-[11px] uppercase tracking-wider">
+                    Metronome Settings
+                  </span>
+                  <span className="text-[10px] text-emerald-400">Isolated Monitor</span>
+                </div>
+
+                {/* Volume Slider */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[10px] text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Volume2 className="w-3 h-3 text-slate-400" />
+                      VOLUME:
+                    </span>
+                    <span className="text-white font-bold">{Math.round(metroVolume * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1.5"
+                    step="0.05"
+                    value={metroVolume}
+                    onChange={(e) => handleMetroVolumeChange(parseFloat(e.target.value))}
+                    className="w-full accent-akai-red cursor-pointer h-1.5 bg-chassis-750 rounded-lg appearance-none"
+                  />
+                </div>
+
+                {/* Mode Selector */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-slate-400">PLAYBACK MODE:</span>
+                  <div className="grid grid-cols-2 gap-1 bg-chassis-850 p-0.5 rounded-lg border border-chassis-750">
+                    <button
+                      onClick={() => handleMetroModeChange('while_running')}
+                      className={`py-1 px-1.5 rounded text-[10px] font-bold transition-all text-center ${
+                        metroMode === 'while_running'
+                          ? 'bg-akai-red text-white shadow'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      PLAY / REC
+                    </button>
+                    <button
+                      onClick={() => handleMetroModeChange('always')}
+                      className={`py-1 px-1.5 rounded text-[10px] font-bold transition-all text-center ${
+                        metroMode === 'always'
+                          ? 'bg-akai-red text-white shadow'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      ALWAYS ON
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-[9px] text-slate-500 italic pt-1 border-t border-chassis-750">
+                  * Metronome click is never recorded into loop tracks or exported audio.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 24-bit WAV Export Button */}

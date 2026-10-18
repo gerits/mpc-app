@@ -7,6 +7,7 @@ pub mod commands;
 pub mod dsp;
 pub mod effects;
 pub mod looper;
+pub mod metronome;
 pub mod midi;
 pub mod router;
 pub mod soundfont_manager;
@@ -68,6 +69,9 @@ pub fn run() {
             commands::looper_set_bpm,
             commands::looper_set_bars,
             commands::looper_toggle_mute,
+            commands::looper_set_metronome,
+            commands::looper_set_metronome_volume,
+            commands::looper_set_metronome_mode,
             commands::looper_export,
             commands::get_looper_snapshot,
             commands::panic_audio,
