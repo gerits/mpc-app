@@ -27,7 +27,7 @@ impl Default for AudioStreamConfig {
     fn default() -> Self {
         Self {
             sample_rate: 44100,
-            buffer_size: 256,
+            buffer_size: 512,
             channels: 2,
             device_name: None,
         }
@@ -150,9 +150,14 @@ impl AudioEngine {
         let event_rx = self.event_receiver.clone();
         let meter = Arc::clone(&self.meter);
         let looper_snap = Arc::clone(&self.looper_snapshot);
-
-        let err_fn = |err| {
-            eprintln!("Audio output stream error: {err}");
+        let err_fn = |err: cpal::Error| match err.kind() {
+            cpal::ErrorKind::Xrun => {
+                // Non-fatal transient buffer underrun/overrun notification from hardware driver.
+                // Audio continues streaming without interruption.
+            }
+            _ => {
+                eprintln!("Audio output stream error: {err}");
+            }
         };
 
         let mut dual_synth = DualSynthEngine::new(sample_rate as i32);
@@ -164,6 +169,7 @@ impl AudioEngine {
         stream_config.buffer_size = BufferSize::Fixed(buffer_size);
 
         let looper_snap_cb = Arc::clone(&looper_snap);
+        let mut snap_count_main: u32 = 0;
         let build_result = match sample_format {
             SampleFormat::F32 => device.build_output_stream(
                 stream_config.clone(),
@@ -177,8 +183,12 @@ impl AudioEngine {
                     let (peak_l, peak_r, rms_l, rms_r) =
                         dual_synth.render_interleaved(data, channels);
                     meter.update(peak_l, peak_r, rms_l, rms_r);
-                    if let Ok(mut snap) = looper_snap_cb.try_lock() {
-                        *snap = dual_synth.looper.get_snapshot();
+                    snap_count_main += 1;
+                    if snap_count_main >= 6 {
+                        snap_count_main = 0;
+                        if let Ok(mut snap) = looper_snap_cb.try_lock() {
+                            *snap = dual_synth.looper.get_snapshot();
+                        }
                     }
                 },
                 err_fn,
@@ -188,6 +198,7 @@ impl AudioEngine {
                 let mut fallback_config = stream_config.clone();
                 fallback_config.buffer_size = BufferSize::Default;
                 let looper_snap_fb1 = Arc::clone(&looper_snap);
+                let mut snap_count_fb1: u32 = 0;
                 device.build_output_stream(
                     fallback_config,
                     move |data: &mut [f32], _: &OutputCallbackInfo| {
@@ -200,8 +211,12 @@ impl AudioEngine {
                         let (peak_l, peak_r, rms_l, rms_r) =
                             dual_synth.render_interleaved(data, channels);
                         meter.update(peak_l, peak_r, rms_l, rms_r);
-                        if let Ok(mut snap) = looper_snap_fb1.try_lock() {
-                            *snap = dual_synth.looper.get_snapshot();
+                        snap_count_fb1 += 1;
+                        if snap_count_fb1 >= 6 {
+                            snap_count_fb1 = 0;
+                            if let Ok(mut snap) = looper_snap_fb1.try_lock() {
+                                *snap = dual_synth.looper.get_snapshot();
+                            }
                         }
                     },
                     err_fn,
@@ -223,6 +238,7 @@ impl AudioEngine {
                 let meter_fb = Arc::clone(&self.meter);
                 let looper_snap_fb2 = Arc::clone(&self.looper_snapshot);
                 let mut dual_synth_fb = DualSynthEngine::new(sample_rate as i32);
+                let mut snap_count_fb2: u32 = 0;
 
                 device
                     .build_output_stream(
@@ -237,8 +253,12 @@ impl AudioEngine {
                             let (peak_l, peak_r, rms_l, rms_r) =
                                 dual_synth_fb.render_interleaved(data, channels);
                             meter_fb.update(peak_l, peak_r, rms_l, rms_r);
-                            if let Ok(mut snap) = looper_snap_fb2.try_lock() {
-                                *snap = dual_synth_fb.looper.get_snapshot();
+                            snap_count_fb2 += 1;
+                            if snap_count_fb2 >= 6 {
+                                snap_count_fb2 = 0;
+                                if let Ok(mut snap) = looper_snap_fb2.try_lock() {
+                                    *snap = dual_synth_fb.looper.get_snapshot();
+                                }
                             }
                         },
                         err_fn,
@@ -407,6 +427,11 @@ impl AudioEngine {
         let _ = self.command_sender.send(SynthCommand::LooperRecord(track_idx));
     }
 
+    /// Arm or toggle Record on BOTH tracks simultaneously.
+    pub fn looper_record_both(&self) {
+        let _ = self.command_sender.send(SynthCommand::LooperRecordBoth);
+    }
+
     /// Arm or toggle Overdub on track (0 or 1).
     pub fn looper_overdub(&self, track_idx: usize) {
         let _ = self.command_sender.send(SynthCommand::LooperOverdub(track_idx));
@@ -468,6 +493,39 @@ impl AudioEngine {
         let _ = self
             .command_sender
             .send(SynthCommand::LooperSetMetronomeMode(mode));
+    }
+
+    /// Update note position or pitch in a looper track.
+    pub fn looper_update_note(&self, track: usize, note_id: String, new_step: f32, new_note: u8) {
+        let _ = self.command_sender.send(SynthCommand::UpdateLoopNote {
+            track,
+            note_id,
+            new_step,
+            new_note,
+        });
+    }
+
+    /// Quantize all notes in a looper track to the specified grid step.
+    pub fn looper_quantize(&self, track: usize, grid_step: f32) {
+        let _ = self.command_sender.send(SynthCommand::QuantizeLoop {
+            track,
+            grid_step,
+        });
+    }
+
+    /// Delete a single note in a looper track.
+    pub fn looper_delete_note(&self, track: usize, note_id: String) {
+        let _ = self.command_sender.send(SynthCommand::DeleteLoopNote {
+            track,
+            note_id,
+        });
+    }
+
+    /// Clear all sequenced notes in a looper track.
+    pub fn looper_clear_notes(&self, track: usize) {
+        let _ = self
+            .command_sender
+            .send(SynthCommand::ClearLoopNotes(track));
     }
 
     /// Export the combined looper audio mix to a 24-bit broadcast WAV file.

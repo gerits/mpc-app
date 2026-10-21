@@ -189,6 +189,13 @@ pub fn looper_record(state: State<'_, AppState>, track: usize) -> Result<(), Str
 }
 
 #[tauri::command]
+pub fn looper_record_both(state: State<'_, AppState>) -> Result<(), String> {
+    let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    audio.looper_record_both();
+    Ok(())
+}
+
+#[tauri::command]
 pub fn looper_overdub(state: State<'_, AppState>, track: usize) -> Result<(), String> {
     let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
     audio.looper_overdub(track);
@@ -283,6 +290,51 @@ pub fn looper_export(
 pub fn get_looper_snapshot(state: State<'_, AppState>) -> Result<LooperSnapshot, String> {
     let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
     Ok(audio.looper_snapshot())
+}
+
+#[tauri::command]
+pub fn looper_update_note(
+    state: State<'_, AppState>,
+    track: usize,
+    note_id: String,
+    new_step: f32,
+    new_note: u8,
+) -> Result<(), String> {
+    let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    audio.looper_update_note(track, note_id, new_step, new_note);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn looper_quantize(
+    state: State<'_, AppState>,
+    track: usize,
+    grid_step: f32,
+) -> Result<(), String> {
+    let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    audio.looper_quantize(track, grid_step);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn looper_delete_note(
+    state: State<'_, AppState>,
+    track: usize,
+    note_id: String,
+) -> Result<(), String> {
+    let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    audio.looper_delete_note(track, note_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn looper_clear_notes(
+    state: State<'_, AppState>,
+    track: usize,
+) -> Result<(), String> {
+    let audio = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    audio.looper_clear_notes(track);
+    Ok(())
 }
 
 #[tauri::command]

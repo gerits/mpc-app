@@ -35,6 +35,8 @@ pub enum SynthCommand {
     SetMacroKnob { knob_index: u8, value: f32 },
     /// Arm or toggle Record on looper track (0 or 1)
     LooperRecord(usize),
+    /// Arm or toggle Record on BOTH looper tracks simultaneously
+    LooperRecordBoth,
     /// Arm or toggle Overdub on looper track (0 or 1)
     LooperOverdub(usize),
     /// Start looper playback
@@ -59,6 +61,25 @@ pub enum SynthCommand {
     LooperSetMetronomeMode(crate::metronome::MetronomeMode),
     /// Retrieve full mix buffers for WAV export
     LooperGetMixBuffers(crossbeam_channel::Sender<(Vec<f32>, Vec<f32>, f32)>),
+    /// Update note timing / pitch when dragged in visualizer
+    UpdateLoopNote {
+        track: usize,
+        note_id: String,
+        new_step: f32,
+        new_note: u8,
+    },
+    /// Quantize all notes on track
+    QuantizeLoop {
+        track: usize,
+        grid_step: f32,
+    },
+    /// Delete a single note on track
+    DeleteLoopNote {
+        track: usize,
+        note_id: String,
+    },
+    /// Clear all notes on a track
+    ClearLoopNotes(usize),
     /// Silence all active voices and reset MIDI controller parameters
     Panic,
 }
@@ -115,6 +136,8 @@ pub struct DualSynthEngine {
     scratch_mel_right: Vec<f32>,
     scratch_drm_left: Vec<f32>,
     scratch_drm_right: Vec<f32>,
+    scratch_out_left: Vec<f32>,
+    scratch_out_right: Vec<f32>,
 }
 
 impl DualSynthEngine {
@@ -136,6 +159,8 @@ impl DualSynthEngine {
             scratch_mel_right: vec![0.0; INITIAL_CAPACITY],
             scratch_drm_left: vec![0.0; INITIAL_CAPACITY],
             scratch_drm_right: vec![0.0; INITIAL_CAPACITY],
+            scratch_out_left: vec![0.0; INITIAL_CAPACITY],
+            scratch_out_right: vec![0.0; INITIAL_CAPACITY],
         }
     }
 
@@ -215,6 +240,9 @@ impl DualSynthEngine {
             SynthCommand::LooperRecord(track) => {
                 self.looper.record_track(track);
             }
+            SynthCommand::LooperRecordBoth => {
+                self.looper.record_both();
+            }
             SynthCommand::LooperOverdub(track) => {
                 self.looper.overdub_track(track);
             }
@@ -252,6 +280,23 @@ impl DualSynthEngine {
                 let (mix_l, mix_r) = self.looper.get_mix_buffers();
                 let _ = sender.send((mix_l, mix_r, self.sample_rate as f32));
             }
+            SynthCommand::UpdateLoopNote {
+                track,
+                note_id,
+                new_step,
+                new_note,
+            } => {
+                self.looper.update_note(track, &note_id, new_step, new_note);
+            }
+            SynthCommand::QuantizeLoop { track, grid_step } => {
+                self.looper.quantize_track(track, grid_step);
+            }
+            SynthCommand::DeleteLoopNote { track, note_id } => {
+                self.looper.delete_note(track, &note_id);
+            }
+            SynthCommand::ClearLoopNotes(track) => {
+                self.looper.clear_notes(track);
+            }
             SynthCommand::Panic => {
                 self.panic();
             }
@@ -266,6 +311,7 @@ impl DualSynthEngine {
                 note,
                 velocity,
             } => {
+                self.looper.record_note_on(1, *note, *velocity);
                 if let Some(ref mut synth) = self.melodic_synth {
                     // Send to designated channel (remap channel 9 percussion to 0 if routed here)
                     let ch = if *channel == 9 { 0 } else { *channel as i32 };
@@ -273,6 +319,7 @@ impl DualSynthEngine {
                 }
             }
             RoutedEvent::KeyboardNoteOff { channel, note } => {
+                self.looper.record_note_off(1, *note);
                 if let Some(ref mut synth) = self.melodic_synth {
                     let ch = if *channel == 9 { 0 } else { *channel as i32 };
                     synth.note_off(ch, *note as i32);
@@ -283,6 +330,7 @@ impl DualSynthEngine {
                 note,
                 velocity,
             } => {
+                self.looper.record_note_on(0, *note, *velocity);
                 if let Some(ref mut synth) = self.drum_synth {
                     // Triggers percussion voice on standard percussion channel
                     synth.note_on(Self::PERCUSSION_CHANNEL, *note as i32, *velocity as i32);
@@ -292,6 +340,7 @@ impl DualSynthEngine {
                 pad_index: _,
                 note,
             } => {
+                self.looper.record_note_off(0, *note);
                 if let Some(ref mut synth) = self.drum_synth {
                     synth.note_off(Self::PERCUSSION_CHANNEL, *note as i32);
                 }
@@ -370,6 +419,59 @@ impl DualSynthEngine {
             self.scratch_drm_right.resize(frames, 0.0);
         }
 
+        // Dispatch sequenced loop notes if transport is playing
+        if self.looper.is_running && self.looper.loop_length_samples > 0 {
+            let pos = self.looper.playhead;
+            let loop_len = self.looper.loop_length_samples;
+            let total_steps = self.looper.total_steps() as f32;
+            let samples_per_step = loop_len as f32 / total_steps.max(1.0);
+
+            let sample_in_range = |target: usize| -> bool {
+                let end = pos + frames;
+                if end <= loop_len {
+                    target >= pos && target < end
+                } else {
+                    (target >= pos && target < loop_len) || (target < (end % loop_len))
+                }
+            };
+
+            // Track 0: Drums
+            if self.looper.tracks[0].state == crate::looper::TrackState::Playing
+                || self.looper.tracks[0].state == crate::looper::TrackState::Overdubbing
+            {
+                if let Some(ref mut synth) = self.drum_synth {
+                    for note in &self.looper.tracks[0].notes {
+                        let start_sample = ((note.start_step * samples_per_step).round() as usize) % loop_len;
+                        if sample_in_range(start_sample) {
+                            synth.note_on(Self::PERCUSSION_CHANNEL, note.note as i32, note.velocity as i32);
+                        }
+                        let end_sample = (((note.start_step + note.length_steps) * samples_per_step).round() as usize) % loop_len;
+                        if sample_in_range(end_sample) {
+                            synth.note_off(Self::PERCUSSION_CHANNEL, note.note as i32);
+                        }
+                    }
+                }
+            }
+
+            // Track 1: Keys
+            if self.looper.tracks[1].state == crate::looper::TrackState::Playing
+                || self.looper.tracks[1].state == crate::looper::TrackState::Overdubbing
+            {
+                if let Some(ref mut synth) = self.melodic_synth {
+                    for note in &self.looper.tracks[1].notes {
+                        let start_sample = ((note.start_step * samples_per_step).round() as usize) % loop_len;
+                        if sample_in_range(start_sample) {
+                            synth.note_on(0, note.note as i32, note.velocity as i32);
+                        }
+                        let end_sample = (((note.start_step + note.length_steps) * samples_per_step).round() as usize) % loop_len;
+                        if sample_in_range(end_sample) {
+                            synth.note_off(0, note.note as i32);
+                        }
+                    }
+                }
+            }
+        }
+
         // Render melodic synth
         let (mel_l, mel_r) = (
             &mut self.scratch_mel_left[..frames],
@@ -399,15 +501,29 @@ impl DualSynthEngine {
         let drm_vol = self.drum_volume * drums_gain;
 
         for i in 0..frames {
-            out_left[i] = mel_l[i] * mel_vol + drm_l[i] * drm_vol;
-            out_right[i] = mel_r[i] * mel_vol + drm_r[i] * drm_vol;
+            self.scratch_mel_left[i] *= mel_vol;
+            self.scratch_mel_right[i] *= mel_vol;
+            self.scratch_drm_left[i] *= drm_vol;
+            self.scratch_drm_right[i] *= drm_vol;
+
+            out_left[i] = self.scratch_mel_left[i] + self.scratch_drm_left[i];
+            out_right[i] = self.scratch_mel_right[i] + self.scratch_drm_right[i];
         }
 
         // Process through DSP chain (SVF Filter -> Chorus -> Reverb -> Master Gain -> Soft Saturator)
         self.dsp.process_stereo(out_left, out_right);
 
-        // Process through 2-Track Looper Engine (record input, playback loops)
-        self.looper.process_stereo(out_left, out_right);
+        // Process through 2-Track Looper Engine with isolated inputs:
+        // Track 0 (Drums) strictly receives drum audio only.
+        // Track 1 (Piano/Keys) strictly receives piano audio only.
+        self.looper.process_isolated(
+            &self.scratch_drm_left[..frames],
+            &self.scratch_drm_right[..frames],
+            &self.scratch_mel_left[..frames],
+            &self.scratch_mel_right[..frames],
+            out_left,
+            out_right,
+        );
 
         let mut peak_left = 0.0f32;
         let mut peak_right = 0.0f32;
@@ -445,6 +561,8 @@ impl DualSynthEngine {
     }
 
     /// Render a block of audio directly into an interleaved output slice (e.g. for CPAL stream callback).
+    /// Directly delegates to `render_stereo` to ensure isolated track processing (`process_isolated`)
+    /// and scheduled loop notes are always active in real-time hardware playback.
     /// Returns `(peak_left, peak_right, rms_left, rms_right)`.
     pub fn render_interleaved(
         &mut self,
@@ -456,75 +574,21 @@ impl DualSynthEngine {
         }
 
         let frames = out_interleaved.len() / channels;
-        if self.scratch_mel_left.len() < frames {
-            self.scratch_mel_left.resize(frames, 0.0);
-            self.scratch_mel_right.resize(frames, 0.0);
-            self.scratch_drm_left.resize(frames, 0.0);
-            self.scratch_drm_right.resize(frames, 0.0);
+        let mut scratch_l = std::mem::take(&mut self.scratch_out_left);
+        let mut scratch_r = std::mem::take(&mut self.scratch_out_right);
+        if scratch_l.len() < frames {
+            scratch_l.resize(frames, 0.0);
+            scratch_r.resize(frames, 0.0);
         }
 
-        let (mel_l, mel_r) = (
-            &mut self.scratch_mel_left[..frames],
-            &mut self.scratch_mel_right[..frames],
+        let (peak_left, peak_right, rms_left, rms_right) = self.render_stereo(
+            &mut scratch_l[..frames],
+            &mut scratch_r[..frames],
         );
-        if let Some(ref mut synth) = self.melodic_synth {
-            synth.render(mel_l, mel_r);
-        } else {
-            mel_l.fill(0.0);
-            mel_r.fill(0.0);
-        }
-
-        let (drm_l, drm_r) = (
-            &mut self.scratch_drm_left[..frames],
-            &mut self.scratch_drm_right[..frames],
-        );
-        if let Some(ref mut synth) = self.drum_synth {
-            synth.render(drm_l, drm_r);
-        } else {
-            drm_l.fill(0.0);
-            drm_r.fill(0.0);
-        }
-
-        let (keys_gain, drums_gain) = self.dsp.get_keys_drums_gains();
-        let mel_vol = self.melodic_volume * keys_gain;
-        let drm_vol = self.drum_volume * drums_gain;
-
-        // Sum stems into scratch left/right for in-place DSP processing
-        for i in 0..frames {
-            self.scratch_mel_left[i] = self.scratch_mel_left[i] * mel_vol + self.scratch_drm_left[i] * drm_vol;
-            self.scratch_mel_right[i] = self.scratch_mel_right[i] * mel_vol + self.scratch_drm_right[i] * drm_vol;
-        }
-
-        let (mix_l, mix_r) = (
-            &mut self.scratch_mel_left[..frames],
-            &mut self.scratch_mel_right[..frames],
-        );
-
-        // Process through DSP chain (Filter -> Chorus -> Reverb -> Master Gain -> Soft Saturator)
-        self.dsp.process_stereo(mix_l, mix_r);
-
-        // Process through 2-Track Looper Engine (record input, playback loops)
-        self.looper.process_stereo(mix_l, mix_r);
-
-        let mut peak_left = 0.0f32;
-        let mut peak_right = 0.0f32;
-        let mut sum_sq_left = 0.0f32;
-        let mut sum_sq_right = 0.0f32;
 
         for i in 0..frames {
-            let l = mix_l[i];
-            let r = mix_r[i];
-
-            let abs_l = l.abs();
-            let abs_r = r.abs();
-            if abs_l > peak_left {
-                peak_left = abs_l;
-            }
-            if abs_r > peak_right {
-                peak_right = abs_r;
-            }
-            sum_sq_left += l * l;
-            sum_sq_right += r * r;
+            let l = scratch_l[i];
+            let r = scratch_r[i];
 
             if channels == 2 {
                 out_interleaved[i * 2] = l;
@@ -540,16 +604,8 @@ impl DualSynthEngine {
             }
         }
 
-        let rms_left = if frames > 0 {
-            (sum_sq_left / frames as f32).sqrt()
-        } else {
-            0.0
-        };
-        let rms_right = if frames > 0 {
-            (sum_sq_right / frames as f32).sqrt()
-        } else {
-            0.0
-        };
+        self.scratch_out_left = scratch_l;
+        self.scratch_out_right = scratch_r;
 
         (peak_left, peak_right, rms_left, rms_right)
     }

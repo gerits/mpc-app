@@ -53,6 +53,16 @@ export interface SystemStatus {
 export type TrackState = 'empty' | 'recording' | 'playing' | 'overdubbing' | 'muted';
 export type MetronomeMode = 'while_running' | 'always';
 
+export interface LoopNote {
+  id: string;
+  track_index: number;
+  note: number;
+  velocity: number;
+  start_step: number;
+  length_steps: number;
+  off_beat: boolean;
+}
+
 export interface LooperSnapshot {
   bpm: number;
   bar_count: number;
@@ -68,6 +78,10 @@ export interface LooperSnapshot {
   metronome_volume?: number;
   metronome_mode?: MetronomeMode;
   metronome_is_ticking?: boolean;
+  track1_notes?: LoopNote[];
+  track2_notes?: LoopNote[];
+  waveform_peaks_t1?: number[];
+  waveform_peaks_t2?: number[];
 }
 
 export interface AudioMeterPayload {
@@ -129,6 +143,7 @@ export const api = {
   getVolumes: () => invoke<ChannelVolumes>('get_volumes'),
 
   looperRecord: (track: number) => invoke<void>('looper_record', { track }),
+  looperRecordBoth: () => invoke<void>('looper_record_both'),
   looperOverdub: (track: number) => invoke<void>('looper_overdub', { track }),
   looperPlay: () => invoke<void>('looper_play'),
   looperStop: () => invoke<void>('looper_stop'),
@@ -146,6 +161,14 @@ export const api = {
   looperExport: (customPath?: string) =>
     invoke<string>('looper_export', { customPath: customPath ?? null }),
   getLooperSnapshot: () => invoke<LooperSnapshot>('get_looper_snapshot'),
+  looperUpdateNote: (track: number, noteId: string, newStep: number, newNote: number) =>
+    invoke<void>('looper_update_note', { track, noteId, newStep, newNote }),
+  looperQuantize: (track: number, gridStep = 1.0) =>
+    invoke<void>('looper_quantize', { track, gridStep }),
+  looperDeleteNote: (track: number, noteId: string) =>
+    invoke<void>('looper_delete_note', { track, noteId }),
+  looperClearNotes: (track: number) =>
+    invoke<void>('looper_clear_notes', { track }),
   panicAudio: () => invoke<void>('panic_audio'),
 
   sendNoteOn: (channel: number, note: number, velocity = 100) =>

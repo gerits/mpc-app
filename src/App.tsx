@@ -5,12 +5,15 @@ import { KeyboardPreview } from './components/KeyboardPreview';
 import { PadMatrix } from './components/PadMatrix';
 import { KnobRack } from './components/KnobRack';
 import { LooperBar } from './components/LooperBar';
+import { LoopEditor } from './components/LoopEditor';
 import { SettingsModal } from './components/SettingsModal';
 import { api, onMidiEvent, onLooperSnapshot, type SystemStatus, type LooperSnapshot, type RoutedEvent, type CuratedPreset } from './types/ipc';
 
 export function App() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [looperSnap, setLooperSnap] = useState<LooperSnapshot | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState<number>(0);
+  const [showLoopEditor, setShowLoopEditor] = useState<boolean>(true);
   const [masterVolume, setMasterVolume] = useState<number>(0.9);
   const [lastMidiEvent, setLastMidiEvent] = useState<string>('Ready');
   const [midiActivity, setMidiActivity] = useState<boolean>(false);
@@ -121,9 +124,24 @@ export function App() {
       />
 
       {/* Main Workstation Workspace Shell */}
-      <main className="flex-1 bg-carbon p-4 flex flex-col gap-3 overflow-hidden">
+      <main className="flex-1 bg-carbon p-4 flex flex-col gap-3 overflow-y-auto min-h-0">
         {/* Top: 2-Track Quick Looper & Transport Bar */}
-        <LooperBar snapshot={looperSnap} />
+        <LooperBar
+          snapshot={looperSnap}
+          selectedTrack={selectedTrack}
+          onSelectTrack={setSelectedTrack}
+          showEditor={showLoopEditor}
+          onToggleEditor={() => setShowLoopEditor((prev) => !prev)}
+        />
+
+        {/* Interactive Loop Visualizer & Note Alignment Editor */}
+        {showLoopEditor && (
+          <LoopEditor
+            snapshot={looperSnap}
+            selectedTrack={selectedTrack}
+            onSelectTrack={setSelectedTrack}
+          />
+        )}
 
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
           {/* Left Column: Keyboard & Melodic Area */}

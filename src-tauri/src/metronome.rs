@@ -132,7 +132,7 @@ impl Metronome {
     pub fn process_sample_running(
         &mut self,
         pos: usize,
-        loop_len: usize,
+        samples_per_beat: f64,
         total_beats: u32,
         beats_per_bar: u32,
     ) -> f32 {
@@ -140,8 +140,7 @@ impl Metronome {
             return 0.0;
         }
 
-        if total_beats > 0 && loop_len > 0 {
-            let samples_per_beat = loop_len as f64 / total_beats as f64;
+        if total_beats > 0 && samples_per_beat > 0.0 {
             let b = ((pos as f64) / samples_per_beat).round() as usize;
             if b < total_beats as usize {
                 let beat_pos = ((b as f64) * samples_per_beat).round() as usize;

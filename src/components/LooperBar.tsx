@@ -14,10 +14,25 @@ import { api, type LooperSnapshot, type MetronomeMode } from '../types/ipc';
 
 interface LooperBarProps {
   snapshot: LooperSnapshot | null;
+  selectedTrack?: number;
+  onSelectTrack?: (track: number) => void;
+  showEditor?: boolean;
+  onToggleEditor?: () => void;
 }
 
-export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
-  const [selectedTrack, setSelectedTrack] = useState<number>(0); // 0 = Track 1, 1 = Track 2
+export const LooperBar: React.FC<LooperBarProps> = ({
+  snapshot,
+  selectedTrack: propsSelectedTrack,
+  onSelectTrack,
+  showEditor,
+  onToggleEditor,
+}) => {
+  const [internalTrack, setInternalTrack] = useState<number>(0);
+  const selectedTrack = propsSelectedTrack !== undefined ? propsSelectedTrack : internalTrack;
+  const setSelectedTrack = (t: number) => {
+    if (onSelectTrack) onSelectTrack(t);
+    else setInternalTrack(t);
+  };
   const [bpm, setBpm] = useState<number>(snapshot?.bpm ?? 120);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -107,12 +122,21 @@ export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
   };
 
   const currentTrackState = selectedTrack === 0 ? t1State : t2State;
+  const bothRecording = t1State === 'recording' && t2State === 'recording';
 
   const handleRecord = () => {
     if (currentTrackState === 'recording') {
       api.looperPlay().catch(console.error);
     } else {
       api.looperRecord(selectedTrack).catch(console.error);
+    }
+  };
+
+  const handleRecordBoth = () => {
+    if (bothRecording) {
+      api.looperPlay().catch(console.error);
+    } else {
+      api.looperRecordBoth().catch(console.error);
     }
   };
 
@@ -273,24 +297,41 @@ export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
           </button>
         </div>
 
-        {/* Bar Length Selector (1, 2, 4, 8) */}
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-slate-500 text-[10px]">LENGTH:</span>
-          <div className="flex items-center bg-chassis-900 rounded p-0.5 border border-chassis-700">
-            {[1, 2, 4, 8].map((b) => (
-              <button
-                key={b}
-                onClick={() => handleBarsChange(b)}
-                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                  barCount === b
-                    ? 'bg-akai-red text-white shadow'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {b}B
-              </button>
-            ))}
+        {/* Right Action: Bar Length Selector & Visualizer Toggle */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-slate-500 text-[10px]">LENGTH:</span>
+            <div className="flex items-center bg-chassis-900 rounded p-0.5 border border-chassis-700">
+              {[1, 2, 4, 8].map((b) => (
+                <button
+                  key={b}
+                  onClick={() => handleBarsChange(b)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                    barCount === b
+                      ? 'bg-akai-red text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {b}B
+                </button>
+              ))}
+            </div>
           </div>
+
+          {onToggleEditor && (
+            <button
+              onClick={onToggleEditor}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold transition-all border ${
+                showEditor
+                  ? 'bg-akai-red border-akai-red text-white shadow'
+                  : 'bg-chassis-900 border-chassis-700 text-slate-400 hover:text-white'
+              }`}
+              title="Toggle Note Visualizer & Alignment Editor"
+            >
+              <span>NOTE EDITOR</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${showEditor ? 'bg-white' : 'bg-slate-500'}`} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -301,7 +342,7 @@ export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
           {/* Record Button */}
           <button
             onClick={handleRecord}
-            title={currentTrackState === 'recording' ? 'Switch to Playback' : 'Record into active track'}
+            title={currentTrackState === 'recording' ? 'Switch to Playback' : `Record into ${selectedTrack === 0 ? 'Drums' : 'Keys'}`}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-mono text-xs font-bold transition-all border shadow ${
               currentTrackState === 'recording'
                 ? 'bg-akai-red text-white border-white animate-pulse shadow-[0_0_16px_rgba(229,37,33,0.9)]'
@@ -309,7 +350,21 @@ export const LooperBar: React.FC<LooperBarProps> = ({ snapshot }) => {
             }`}
           >
             <Circle className={`w-3.5 h-3.5 ${currentTrackState === 'recording' ? 'fill-white' : 'fill-rose-500'}`} />
-            <span>REC</span>
+            <span>REC {selectedTrack === 0 ? 'T1' : 'T2'}</span>
+          </button>
+
+          {/* Record Both Button */}
+          <button
+            onClick={handleRecordBoth}
+            title={bothRecording ? 'Switch to Playback' : 'Record both Drums & Keys simultaneously into isolated tracks'}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-mono text-xs font-bold transition-all border shadow ${
+              bothRecording
+                ? 'bg-rose-600 text-white border-white animate-pulse shadow-[0_0_16px_rgba(225,29,72,0.9)]'
+                : 'bg-chassis-900 hover:bg-rose-950/40 text-rose-300 border-rose-900/60 hover:border-rose-500'
+            }`}
+          >
+            <Circle className={`w-3.5 h-3.5 ${bothRecording ? 'fill-white' : 'fill-rose-400'}`} />
+            <span>REC BOTH</span>
           </button>
 
           {/* Overdub Button */}

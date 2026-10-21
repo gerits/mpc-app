@@ -8,6 +8,18 @@ pub struct MidiDeviceInfo {
     pub is_akai: bool,
 }
 
+/// A recorded musical note in a loop track.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LoopNote {
+    pub id: String,
+    pub track_index: usize, // 0 = Drums, 1 = Keys
+    pub note: u8,           // MIDI note number (36..51 for pads, 0..127 for keys)
+    pub velocity: u8,       // 1..=127
+    pub start_step: f32,    // Position in 16th-note steps (e.g. 0.0 .. 32.0 for 2 bars)
+    pub length_steps: f32,  // Duration in 16th-note steps
+    pub off_beat: bool,     // True if not aligned to nearest 1/16th grid within tolerance
+}
+
 /// Raw parsed MIDI Channel and System events.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]

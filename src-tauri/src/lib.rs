@@ -30,7 +30,7 @@ pub struct AudioMeterPayload {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let audio_engine = AudioEngine::new(44100, 256);
+    let audio_engine = AudioEngine::new(44100, 512);
     let event_sender = audio_engine.event_sender();
     let midi_engine = MidiEngine::new(event_sender);
 
@@ -61,6 +61,7 @@ pub fn run() {
             commands::set_volume,
             commands::get_volumes,
             commands::looper_record,
+            commands::looper_record_both,
             commands::looper_overdub,
             commands::looper_play,
             commands::looper_stop,
@@ -74,6 +75,10 @@ pub fn run() {
             commands::looper_set_metronome_mode,
             commands::looper_export,
             commands::get_looper_snapshot,
+            commands::looper_update_note,
+            commands::looper_quantize,
+            commands::looper_delete_note,
+            commands::looper_clear_notes,
             commands::panic_audio,
             commands::send_note_on,
             commands::send_note_off,

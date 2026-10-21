@@ -13,6 +13,9 @@ pub struct RouterConfig {
     pub knob_start_cc: u8,
     /// Number of macro knobs (default 8)
     pub knob_count: u8,
+    /// When true (default), drum events are strictly filtered to `drum_channel` (MIDI Channel 10),
+    /// ensuring keyboard notes on Channel 0 (including lower octaves 36..51) are never hijacked as drum hits.
+    pub pad_channel_only: bool,
 }
 
 impl Default for RouterConfig {
@@ -23,6 +26,7 @@ impl Default for RouterConfig {
             drum_channel: 9,    // MIDI Channel 10
             knob_start_cc: 70,  // CC 70 = K1
             knob_count: 8,      // 8 Knobs (CC 70 - 77)
+            pad_channel_only: true, // Strict channel separation
         }
     }
 }
@@ -138,8 +142,13 @@ impl MidiRouter {
     /// Determines if an event should be routed to the drum pad sound engine.
     #[inline]
     fn is_drum_event(&self, channel: u8, note: u8) -> bool {
-        channel == self.config.drum_channel
-            || (note >= self.config.pad_start_note && note <= self.config.pad_end_note)
+        if channel == self.config.drum_channel {
+            true
+        } else if !self.config.pad_channel_only {
+            note >= self.config.pad_start_note && note <= self.config.pad_end_note
+        } else {
+            false
+        }
     }
 
     /// Calculates a pad index in range 0..16.
@@ -168,36 +177,36 @@ mod tests {
     fn test_note_routing_drum_pad_vs_keyboard() {
         let router = MidiRouter::new();
 
-        // Note 36 (C1) on Channel 0 -> DrumPad 0
+        // Note 36 (C1) on Channel 0 -> KeyboardNoteOn (piano keys never end up on drum track!)
         let note36_on = [0x90, 36, 100];
         let routed = router.route_raw(&note36_on).expect("routed event");
         assert_eq!(
             routed,
-            RoutedEvent::DrumPadOn {
-                pad_index: 0,
+            RoutedEvent::KeyboardNoteOn {
+                channel: 0,
                 note: 36,
                 velocity: 100,
             }
         );
 
-        // Note 36 Note Off
+        // Note 36 Note Off on Channel 0 -> KeyboardNoteOff
         let note36_off = [0x80, 36, 64];
         let routed_off = router.route_raw(&note36_off).expect("routed event");
         assert_eq!(
             routed_off,
-            RoutedEvent::DrumPadOff {
-                pad_index: 0,
+            RoutedEvent::KeyboardNoteOff {
+                channel: 0,
                 note: 36,
             }
         );
 
-        // Note 51 (D#2) -> DrumPad 15 (Bank B Pad 8)
+        // Note 51 (D#2) on Channel 0 -> KeyboardNoteOn
         let note51_on = [0x90, 51, 127];
-        let routed_pad15 = router.route_raw(&note51_on).expect("routed event");
+        let routed_key51 = router.route_raw(&note51_on).expect("routed event");
         assert_eq!(
-            routed_pad15,
-            RoutedEvent::DrumPadOn {
-                pad_index: 15,
+            routed_key51,
+            RoutedEvent::KeyboardNoteOn {
+                channel: 0,
                 note: 51,
                 velocity: 127,
             }
@@ -234,6 +243,25 @@ mod tests {
             RoutedEvent::KeyboardNoteOff {
                 channel: 0,
                 note: 60,
+            }
+        );
+    }
+
+    #[test]
+    fn test_legacy_note_range_routing() {
+        let mut config = RouterConfig::default();
+        config.pad_channel_only = false;
+        let router = MidiRouter::with_config(config);
+
+        // Note 36 (C1) on Channel 0 with pad_channel_only=false -> DrumPad 0
+        let note36_on = [0x90, 36, 100];
+        let routed = router.route_raw(&note36_on).expect("routed event");
+        assert_eq!(
+            routed,
+            RoutedEvent::DrumPadOn {
+                pad_index: 0,
+                note: 36,
+                velocity: 100,
             }
         );
     }
